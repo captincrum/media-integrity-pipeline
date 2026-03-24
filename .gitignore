@@ -1,0 +1,24 @@
+# Windows
+Thumbs.db
+desktop.ini
+
+# PowerShell
+*.ps1xml
+*.pssc
+*.cache
+*.psd1
+
+# Logs
+*.log
+*.json.log
+
+# Build artifacts (if GUI compiles later)
+bin/
+obj/
+
+# Editor files
+.vscode/
+.idea/
+*.suo
+*.user
+*.vs
