@@ -17,7 +17,8 @@ $modules = @(
     "UnifiedMedia.Config.psm1",
     "UnifiedMedia.Scan.psm1",
     "UnifiedMedia.Repair.psm1",
-    "UnifiedMedia.Quality.psm1"
+    "UnifiedMedia.Quality.psm1",
+    "UnifiedMedia.Output.psm1"
 )
 foreach ($m in $modules) {
     Import-Module (Join-Path $moduleRoot $m) -Force
@@ -128,12 +129,14 @@ $xaml = @"
                     <TextBlock x:Name="txtStatus" Text="Idle"/>
                 </StackPanel>
 
-                <TextBox x:Name="txtConsole"
-                         Grid.Row="1"
-                         Margin="0,5,0,0"
-                         IsReadOnly="True"
-                         VerticalScrollBarVisibility="Auto"
-                         TextWrapping="Wrap"/>
+				<TextBox x:Name="txtConsole"
+						 Grid.Row="1"
+						 Margin="0,5,0,0"
+						 IsReadOnly="True"
+						 VerticalScrollBarVisibility="Auto"
+						 TextWrapping="Wrap"
+						 FontFamily="Consolas"
+						 FontSize="14"/>
             </Grid>
         </GroupBox>
 
@@ -230,6 +233,11 @@ $chkScanAllEpisodes.IsChecked = $config.ScanAllEpisodes
 # ------------------------------------------------------------
 function Append-Console { param($msg)
     $window.Dispatcher.Invoke([action]{
+        if ($msg -eq "__CLEAR__") {
+            $txtConsole.Clear()
+            return
+        }
+
         $txtConsole.AppendText("$msg`r`n")
         $txtConsole.ScrollToEnd()
     })
@@ -327,6 +335,12 @@ $btnStart.Add_Click({
     Set-Status "Running..."
     Set-RunningState $true
 
+    # ------------------------------------------------------------
+    # Initialize GUI Output Router
+    # ------------------------------------------------------------
+    $Global:IsGUI = $true
+    $Global:AppendConsole = { param($msg) Append-Console $msg }
+
     # Start job
     $script:CurrentJob = Start-Job -ScriptBlock {
         param($cfg,$moduleRoot)
@@ -337,48 +351,21 @@ $btnStart.Add_Click({
             "UnifiedMedia.Config.psm1",
             "UnifiedMedia.Scan.psm1",
             "UnifiedMedia.Repair.psm1",
-            "UnifiedMedia.Quality.psm1"
+            "UnifiedMedia.Quality.psm1",
+            "UnifiedMedia.Output.psm1"
         )
         foreach ($m in $modules) {
             Import-Module (Join-Path $moduleRoot $m) -Force
         }
 
+        # GUI output router inside job
+        $Global:IsGUI = $true
+        $Global:AppendConsole = { param($msg) Write-Output $msg }
+
         $ctx = Initialize-UMConfig -Mode $cfg.Mode -RootPath $cfg.RootPath -RepairedRootOverride $cfg.RepairedPath
 
         # Mark this context as GUI-driven
         $ctx | Add-Member -NotePropertyName IsGUI -NotePropertyValue $true -Force
-
-        # ------------------------------------------------------------
-        # REPAIR ONLY MODE — FIX ROOTPATH + LIBRARYTYPE
-        # ------------------------------------------------------------
-        if ($cfg.Mode -eq "RepairOnly") {
-
-            $queue = UM-GetRepairQueue
-
-            if ($queue -and $queue.Count -gt 0) {
-
-                $firstPath = $queue[0].Path
-
-                # Try to derive library root up to \Movies\ or \Shows\
-                $libRoot = $null
-
-                if ($firstPath -match "(.*\\Movies\\)") {
-                    $libRoot = ($matches[1] + "Movies")
-                    $ctx.LibraryType = "Movies"
-                }
-                elseif ($firstPath -match "(.*\\Shows\\)") {
-                    $libRoot = ($matches[1] + "Shows")
-                    $ctx.LibraryType = "Shows"
-                }
-
-                # Fallback: parent folder
-                if (-not $libRoot) {
-                    $libRoot = Split-Path $firstPath -Parent
-                }
-
-                $ctx.RootPath = $libRoot
-            }
-        }
 
         UM-LogInit
 
@@ -398,7 +385,7 @@ $btnStart.Add_Click({
             Invoke-UMScan
         }
         if ($cfg.Mode -in @("Full","RepairOnly")) {
-            Invoke-UMRepair -Context $ctx | Out-Null
+            Invoke-UMRepair -Context $ctx
         }
 
         # Derive simple summary
@@ -430,18 +417,24 @@ $btnStart.Add_Click({
         $state = $script:CurrentJob.State
 
         # Stream all text output so far
-        $output = Receive-Job $script:CurrentJob -Keep -ErrorAction SilentlyContinue
-        if ($output) {
-            $lines = $output | Where-Object { $_ -is [string] }
-            $window.Dispatcher.Invoke([action]{
-                $txtConsole.Clear()
-                if ($lines.Count -gt 0) {
-                    $txtConsole.AppendText(($lines -join "`r`n"))
-                    $txtConsole.ScrollToEnd()
-                }
-            })
-        }
+		$output = Receive-Job $script:CurrentJob -Keep -ErrorAction SilentlyContinue
+		if ($output) {
+			$lines = foreach ($o in $output) {
+				if ($o -is [string]) {
+					$o
+				}
+				elseif ($o -is [System.Management.Automation.InformationRecord]) {
+					$o.MessageData
+				}
+			}
 
+			foreach ($line in $lines) {
+				if ($line) {
+					& $Global:AppendConsole $line
+				}
+			}
+		}
+		
         if ($state -ne "Running") {
 
             if ($script:JobTimer -ne $null) {
@@ -468,12 +461,7 @@ $btnStart.Add_Click({
                 } else {
                     $percent = 0
                 }
-
-                Append-Console ""
-                Append-Console "Library Scanned: $($ctx.RootPath)"
-                Append-Console "Scanned: $scanned/$total"
-                Append-Console "Percentage: $percent%"
-                Append-Console ""
+				Append-Console ""
                 Append-Console "Scan of $($ctx.RootPath) complete. Select the next task."
             }
 
@@ -495,6 +483,9 @@ $btnStart.Add_Click({
     $script:JobTimer.Start()
 })
 
+# ------------------------------------------------------------
+# Cancel button
+# ------------------------------------------------------------
 $btnCancel.Add_Click({
     if ($script:CurrentJob -and $script:CurrentJob.State -eq "Running") {
         Append-Console "Cancellation requested..."
