@@ -48,65 +48,89 @@ function UM-SaveJson {
     }
 }
 
-function UM-ReadChoice {
+function UM-CleanupPreviousRepairs {
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$Title,
-
-        [Parameter()]
-        [hashtable]$Choices = $null,
-
-        [string]$Default = $null,
-
-        [switch]$Silent,
-
-        [switch]$FreeText,   				# NEW: allows arbitrary input
-
-        [scriptblock]$Validator = $null  	# NEW: custom validation
+        [Parameter(Mandatory=$true)][string]$Directory,
+        [Parameter(Mandatory=$true)][string]$BaseName,
+        [Parameter(Mandatory=$true)][string]$KeepExtension
     )
 
-    while ($true) {
-        Clear-Host
-        Write-Host $Title
+    # Build pattern: BaseName.*
+    $pattern = Join-Path $Directory ($BaseName + ".*")
 
-        if (-not $Silent -and -not $FreeText -and $Choices) {
-            foreach ($key in ($Choices.Keys | Sort-Object)) {
-                $label = $Choices[$key].Label
-                Write-Host "$key = $label"
+    # Get all matching files
+    $files = Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue
+
+    foreach ($f in $files) {
+        # Delete everything EXCEPT the final successful extension
+        if ($f.Extension -ne $KeepExtension) {
+            try {
+                Remove-Item $f.FullName -Force
+            }
+            catch {
+                Write-Host "UM-CleanupPreviousRepairs: Failed to delete $($f.FullName)"
             }
         }
-
-        $input = Read-Host "Enter choice"
-
-        # FreeText mode: return raw input if valid
-        if ($FreeText) {
-            if ($Validator) {
-                if (& $Validator $input) {
-                    return $input
-                }
-            } else {
-                return $input
-            }
-
-            Write-Host ""
-            Write-Host "Invalid selection. Try again."
-            Start-Sleep -Seconds 2
-            continue
-        }
-
-        # Default handling
-        if ($input -eq "" -and $Default) {
-            return $Choices[$Default].Value
-        }
-
-        if ($Choices.ContainsKey($input)) {
-            return $Choices[$input].Value
-        }
-
-        Write-Host ""
-        Write-Host "Invalid selection. Try again."
-        Start-Sleep -Seconds 2
     }
 }
 
-Export-ModuleMember -Function UM-LoadJson, UM-SaveJson, UM-ReadChoice
+function UM-GetRepairedOutputPath {
+    param(
+        [Parameter(Mandatory=$true)][object]$Context,
+        [Parameter(Mandatory=$true)][string]$SourcePath
+    )
+
+    # Determine library type
+    $libraryType = $Context.LibraryType
+
+    $relative = $null
+
+    if ($SourcePath -match "(?i)(.*\\Shows\\)(.+)") {
+        # Library root = group 1, relative = group 2
+        $relative = $matches[2]
+    }
+    elseif ($SourcePath -match "(?i)(.*\\Movies\\)(.+)") {
+        $relative = $matches[2]
+    }
+    elseif ($Context.RootPath -and
+            $SourcePath.StartsWith($Context.RootPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+
+        # Fallback to original RootPath-based behavior
+        $relative = $SourcePath.Substring($Context.RootPath.Length).TrimStart("\","/")
+    }
+    else {
+        # Last-resort fallback: filename only (original behavior)
+        $relative = [System.IO.Path]::GetFileName($SourcePath)
+    }
+
+    $relativeDir = [System.IO.Path]::GetDirectoryName($relative)
+    $ext         = [System.IO.Path]::GetExtension($SourcePath)
+    $baseName    = [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
+
+    # Build repaired root
+    $targetDirBase = Join-Path $Context.RepairedRoot $libraryType
+
+    # Build full directory
+    $targetFullDir = if ($relativeDir) {
+        Join-Path $targetDirBase $relativeDir
+    } else {
+        $targetDirBase
+    }
+
+    # Ensure directory exists
+    if (-not (Test-Path $targetFullDir)) {
+        New-Item -ItemType Directory -Path $targetFullDir -Force | Out-Null
+    }
+
+    # Return all relevant paths
+    return [PSCustomObject]@{
+        Directory       = $targetFullDir
+        BaseName        = $baseName
+        SameExtPath     = Join-Path $targetFullDir ($baseName + $ext)
+        Mp4Path         = Join-Path $targetFullDir ($baseName + ".mp4")
+        Relative        = $relative
+        RelativeDir     = $relativeDir
+    }
+}
+
+Export-ModuleMember -Function UM-LoadJson, UM-SaveJson, UM-CleanupPreviousRepairs, UM-GetRepairedOutputPath
