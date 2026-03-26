@@ -64,14 +64,8 @@ function Get-UMFilesToScan {
         $ScanAllEpisodesRef.Value = [bool]$Global:Context.ScanAllEpisodes
     }
     else {
-        # Console fallback — prompt user
-        $ScanAllEpisodesRef.Value = UM-ReadChoice `
-            -Title "Scan ALL episodes for ALL shows? (Y/N)" `
-            -Choices @{
-                "Y" = @{ Label = "Yes";  Value = $true }
-                "N" = @{ Label = "No";   Value = $false }
-            } `
-            -Silent
+        # No GUI override — default to scanning first episodes only
+        $ScanAllEpisodesRef.Value = $false
     }
 
     # If scanning all episodes, return everything
@@ -90,7 +84,7 @@ function Get-UMFilesToScan {
     foreach ($showDir in $showDirs) {
 
         $episodeFiles = Get-ChildItem -Path $showDir.FullName -Recurse -File -Include $videoExtensions
-        $seasonGroups = @{}
+        $seasonGroups = @{ }
 
         foreach ($file in $episodeFiles) {
             if ($file.Name -match "S(\d{2,4})E(\d{2})") {
@@ -165,9 +159,14 @@ function Invoke-UMScan {
     $Context = $Global:Context
 
     if (-not $Context.RootPath) {
-        Write-Host "Scan requires a valid root path. Exiting."
+        UM-Output "Scan requires a valid root path. Exiting."
         return
     }
+
+    # --------------------------------------------
+    # Phase 1 Output
+    # --------------------------------------------
+    UM-OutputScanPhase -Context $Context
 
     # Read unified log
     $unifiedLog = UM-ReadUnifiedLog
@@ -183,15 +182,27 @@ function Invoke-UMScan {
 
     $totalFiles   = $allFiles.Count
     $scannedFiles = 0
+    $startTime    = Get-Date
 
     foreach ($file in $allFiles) {
 
-        # FIXED: Skip files already scanned
+        # Skip files already scanned
         if (UM-IsScanned -Path $file.FullName -ScanLog $scanLog) {
             continue
         }
 
         $scannedFiles++
+
+        $elapsed = (Get-Date) - $startTime
+
+        # --------------------------------------------
+        # Phase 2 Output (per file)
+        # --------------------------------------------
+        UM-OutputScanProgress `
+            -File $file `
+            -Elapsed $elapsed `
+            -ScannedFiles $scannedFiles `
+            -TotalFiles $totalFiles
 
         $errors = Invoke-UMScanFile -FilePath $file.FullName
 
@@ -220,4 +231,9 @@ function Invoke-UMScan {
             }
         }
     }
+
+    # --------------------------------------------
+    # Final Output
+    # --------------------------------------------
+    UM-OutputScanComplete
 }
