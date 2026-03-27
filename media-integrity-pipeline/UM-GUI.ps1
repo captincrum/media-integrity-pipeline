@@ -1,6 +1,7 @@
 # =====================================================================
 # UM-GUI.ps1 — Unified Media Integrity Pipeline GUI (Updated)
 # =====================================================================
+$Global:UM_LastScanProgressCount = 0
 
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
@@ -331,20 +332,23 @@ $btnStart.Add_Click({
     }
 
     $txtConsole.Clear()
-    Append-Console "Starting pipeline..."
     Set-Status "Running..."
     Set-RunningState $true
 
-    # ------------------------------------------------------------
     # Initialize GUI Output Router
-    # ------------------------------------------------------------
     $Global:IsGUI = $true
     $Global:AppendConsole = { param($msg) Append-Console $msg }
+
+    # Reset Phase 2 tracking
+    $Global:UM_LastScanProgressCount = 0
 
     # Start job
     $script:CurrentJob = Start-Job -ScriptBlock {
         param($cfg,$moduleRoot)
 
+        #
+        # ⭐ Load ALL modules first — Phase 1 must come AFTER this
+        #
         $modules = @(
             "UnifiedMedia.Common.psm1",
             "UnifiedMedia.Logging.psm1",
@@ -363,24 +367,28 @@ $btnStart.Add_Click({
         $Global:AppendConsole = { param($msg) Write-Output $msg }
 
         $ctx = Initialize-UMConfig -Mode $cfg.Mode -RootPath $cfg.RootPath -RepairedRootOverride $cfg.RepairedPath
-
-        # Mark this context as GUI-driven
         $ctx | Add-Member -NotePropertyName IsGUI -NotePropertyValue $true -Force
 
         UM-LogInit
 
-        # Ensure repaired root exists
         if (-not (Test-Path $ctx.RepairedRoot)) {
             New-Item -ItemType Directory -Path $ctx.RepairedRoot -Force | Out-Null
         }
 
-        # Update globals AFTER context is finalized
         $Global:Context = $ctx
         $Global:UnifiedHumanLogPath   = $ctx.UnifiedHumanLogPath
         $Global:UnifiedMachineLogPath = $ctx.UnifiedMachineLogPath
 
         $ctx | Add-Member -NotePropertyName ScanAllEpisodes -NotePropertyValue $cfg.ScanAllEpisodes -Force
 
+        #
+        # ⭐ NOW Phase 1 is safe to call — Output.psm1 is loaded
+        #
+        UM-OutputScanPhase $ctx
+
+        #
+        # Run phases based on mode
+        #
         if ($cfg.Mode -in @("Full","ScanOnly")) {
             Invoke-UMScan
         }
@@ -407,65 +415,98 @@ $btnStart.Add_Click({
         }
     } -ArgumentList $config,$moduleRoot
 
-    # Poll job state and stream output
+
+    # ------------------------------------------------------------
+    # Fresh timer for each run
+    # ------------------------------------------------------------
+    if ($script:JobTimer) {
+        $script:JobTimer.Stop()
+        $script:JobTimer = $null
+    }
+
     $script:JobTimer = New-Object System.Windows.Threading.DispatcherTimer
     $script:JobTimer.Interval = [TimeSpan]::FromSeconds(1)
 
     $script:JobTimer.Add_Tick({
+
         if (-not $script:CurrentJob) { return }
 
         $state = $script:CurrentJob.State
 
-        # Stream all text output so far
-		$output = Receive-Job $script:CurrentJob -Keep -ErrorAction SilentlyContinue
-		if ($output) {
-			$lines = foreach ($o in $output) {
-				if ($o -is [string]) {
-					$o
-				}
-				elseif ($o -is [System.Management.Automation.InformationRecord]) {
-					$o.MessageData
-				}
-			}
+        # Receive all job output
+        $output = Receive-Job $script:CurrentJob -Keep -ErrorAction SilentlyContinue
 
-			foreach ($line in $lines) {
-				if ($line) {
-					& $Global:AppendConsole $line
-				}
-			}
-		}
-		
+        # Extract ONLY ScanProgress objects
+        $progressObjects = $output | Where-Object {
+            $_ -is [pscustomobject] -and $_.Type -eq "ScanProgress"
+        }
+
+        #
+        # ⭐ Detect NEW ScanProgress (Phase 2 is active)
+        #
+        $currentCount = $progressObjects.Count
+        $newScanProgress = ($currentCount -gt $Global:UM_LastScanProgressCount)
+        $Global:UM_LastScanProgressCount = $currentCount
+
+        #
+        # ⭐ If no new ScanProgress arrived → Phase 2 is DONE
+        #
+        if (-not $newScanProgress) {
+            $Global:UM_TotalFiles = $null
+            $Global:UM_ScannedFiles = $null
+            $Global:UM_CurrentScanFile = $null
+        }
+
+        # Update progress state (only if new ScanProgress exists)
+        if ($newScanProgress) {
+            $o = $progressObjects[-1]
+
+            $Global:UM_CurrentScanFile    = $o.File
+            $Global:UM_CurrentScanElapsed = $o.Elapsed
+            $Global:UM_ScannedFiles       = [int]$o.Scanned
+            $Global:UM_TotalFiles         = [int]$o.Total
+        }
+
+        # Print ALL non-progress text (no suppression)
+        if ($output) {
+            foreach ($o in $output) {
+                if ($o -is [pscustomobject] -and $o.Type -eq "ScanProgress") { continue }
+
+                if ($o -is [string]) {
+                    & $Global:AppendConsole $o
+                }
+                elseif ($o -is [System.Management.Automation.InformationRecord]) {
+                    & $Global:AppendConsole $o.MessageData
+                }
+            }
+        }
+
+        #
+        # ⭐ Only show Phase 2 when NEW ScanProgress exists
+        #
+        if ($newScanProgress) {
+            UM-OutputScanProgressLive
+        }
+
+        # Job finished?
         if ($state -ne "Running") {
 
-            if ($script:JobTimer -ne $null) {
-                $script:JobTimer.Stop()
-            }
+            $script:JobTimer.Stop()
+            $script:JobTimer = $null
 
-            # Final receive
             $result   = Receive-Job $script:CurrentJob -ErrorAction SilentlyContinue
             $jobState = $script:CurrentJob.State
 
             Remove-Job $script:CurrentJob -ErrorAction SilentlyContinue
             $script:CurrentJob = $null
-            $script:JobTimer   = $null
 
-            if ($result -and $result.Context) {
-                $ctx = $result.Context
-                $Global:UnifiedHumanLogPath   = $ctx.UnifiedHumanLogPath
-                $Global:UnifiedMachineLogPath = $ctx.UnifiedMachineLogPath
+            if ($result -is [array]) { $result = $result[-1] }
 
-                $total   = $result.TotalFiles
-                $scanned = $result.Scanned
-                if ($total -gt 0) {
-                    $percent = [math]::Round(($scanned / $total) * 100)
-                } else {
-                    $percent = 0
-                }
-				Append-Console ""
-                Append-Console "Scan of $($ctx.RootPath) complete. Select the next task."
-            }
+            $rootPath = $result.Context.RootPath
 
             if ($jobState -eq "Completed") {
+                Append-Console ""
+                Append-Console "Scan of $rootPath complete. Select the next task."
                 Set-Status "Completed"
             }
             elseif ($jobState -eq "Stopped") {
@@ -480,7 +521,9 @@ $btnStart.Add_Click({
             Set-RunningState $false
         }
     })
+
     $script:JobTimer.Start()
+
 })
 
 # ------------------------------------------------------------
@@ -488,6 +531,7 @@ $btnStart.Add_Click({
 # ------------------------------------------------------------
 $btnCancel.Add_Click({
     if ($script:CurrentJob -and $script:CurrentJob.State -eq "Running") {
+        Append-Console ""
         Append-Console "Cancellation requested..."
         Set-Status "Cancelling..."
 

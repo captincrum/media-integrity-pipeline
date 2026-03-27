@@ -190,21 +190,18 @@ function UM-LogToRepair {
 function UM-LogRepairAttempt {
     param(
         [string]$Path,
-        [string]$StageInternal,
         [string]$StageFriendly,
         [string]$OutputPath,
         [int]   $CRF,
         [double]$OriginalSizeMB,
         [double]$RepairedSizeMB,
         [double]$SizeRatio,
-        [array] $ErrorsAfter,
-        [string]$AttemptedAt
+        [array] $ErrorsAfter
     )
 
     UM-AppendLogEntry ([ordered]@{
         Type           = "RepairAttempt"
         Path           = $Path
-        StageInternal  = $StageInternal
         StageFriendly  = $StageFriendly
         OutputPath     = $OutputPath
         CRF            = $CRF
@@ -212,9 +209,9 @@ function UM-LogRepairAttempt {
         RepairedSizeMB = $RepairedSizeMB
         SizeRatio      = $SizeRatio
         ErrorsAfter    = $ErrorsAfter
-        AttemptedAt    = $AttemptedAt
     })
 }
+
 
 function UM-LogQuality {
     param(

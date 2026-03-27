@@ -57,18 +57,15 @@ function Get-UMFilesToScan {
     }
 
     # SHOWS — NEW LOGIC:
-    # If GUI provided ScanAllEpisodes, use it and skip prompt
     if ($Global:Context -and
         $Global:Context.PSObject.Properties.Name -contains 'ScanAllEpisodes') {
 
         $ScanAllEpisodesRef.Value = [bool]$Global:Context.ScanAllEpisodes
     }
     else {
-        # No GUI override — default to scanning first episodes only
         $ScanAllEpisodesRef.Value = $false
     }
 
-    # If scanning all episodes, return everything
     if ($ScanAllEpisodesRef.Value) {
         return Get-ChildItem -Path $RootPath -Recurse -File -Include $videoExtensions
     }
@@ -114,24 +111,49 @@ function Invoke-UMShowEscalation {
         [ref]$ScanLog
     )
 
+    #
+    # Only applies to Shows AND only when ScanAllEpisodes = $false
+    #
     if ($Context.LibraryType -ne "Shows" -or $Context.ScanAllEpisodes) {
         return
     }
 
-    $videoExtensions = @("*.mkv","*.mp4","*.avi","*.mov","*.wmv","*.flv","*.mpeg","*.ts","*.webm")
+    # Video extensions
+    $videoExtensions = @(
+        "*.mkv","*.mp4","*.avi","*.mov","*.wmv",
+        "*.flv","*.mpeg","*.ts","*.webm"
+    )
+
+    # Show directory
     $showDir = Split-Path $File.FullName -Parent
 
+    # All episodes in this show folder
     $allEpisodes = Get-ChildItem -Path $showDir -Recurse -File -Include $videoExtensions |
                    Sort-Object Name
 
+    #
+    # ⭐ FIX: Update total files for GUI progress
+    # Count already scanned + remaining unscanned episodes
+    #
+    $remaining = $allEpisodes | Where-Object {
+        -not (UM-IsScanned -Path $_.FullName -ScanLog $ScanLog.Value)
+    }
+
+    $Global:UM_TotalFiles = $ScanLog.Value.Count + $remaining.Count
+
+    #
+    # Scan each unscanned episode
+    #
     foreach ($ep in $allEpisodes) {
 
         if (UM-IsScanned -Path $ep.FullName -ScanLog $ScanLog.Value) {
             continue
         }
 
+        # Perform scan
         $epErrors = Invoke-UMScanFile -FilePath $ep.FullName
 
+        # Build entry
         $entry = [PSCustomObject]@{
             Path      = $ep.FullName
             Library   = $Context.LibraryType
@@ -139,21 +161,42 @@ function Invoke-UMShowEscalation {
             ScannedAt = (Get-Date).ToString("s")
         }
 
+        # Add to scan log
         $ScanLog.Value += $entry
 
-        UM-LogScan -Path $entry.Path -Library $entry.Library -Errors $entry.Errors -ScannedAt $entry.ScannedAt
+        # Log scan
+        UM-LogScan `
+            -Path      $entry.Path `
+            -Library   $entry.Library `
+            -Errors    $entry.Errors `
+            -ScannedAt $entry.ScannedAt
 
+        # Add to repair queue if needed
         if ($epErrors.Count -gt 0) {
             UM-LogToRepair `
-                -Path $entry.Path `
-                -Library $entry.Library `
-                -Errors $entry.Errors `
+                -Path         $entry.Path `
+                -Library      $entry.Library `
+                -Errors       $entry.Errors `
                 -RepairStatus "Pending" `
-                -AddedAt (Get-Date).ToString("s")
+                -AddedAt      (Get-Date).ToString("s")
         }
+
+        #
+        # ⭐ Emit ScanProgress for GUI (critical for Phase 2 updates)
+        #
+        Write-Output ([pscustomobject]@{
+            Type    = "ScanProgress"
+            File    = $ep.FullName
+            Elapsed = UM-GetElapsed
+            Scanned = $ScanLog.Value.Count
+            Total   = $Global:UM_TotalFiles
+        })
     }
 }
 
+# =====================================================================
+# MAIN SCAN FUNCTION — OPTION B (TRUE 1-SECOND LIVE UPDATES)
+# =====================================================================
 function Invoke-UMScan {
 
     $Context = $Global:Context
@@ -163,26 +206,49 @@ function Invoke-UMScan {
         return
     }
 
-    # --------------------------------------------
-    # Phase 1 Output
-    # --------------------------------------------
+    # Reset timers
+    UM-ResetTimers
+    UM-StartTimer
+
+    # Initialize global progress state
+    $Global:UM_CurrentScanFile     = ""
+    $Global:UM_CurrentScanElapsed  = [timespan]::Zero
+    $Global:UM_CurrentFileElapsed  = [timespan]::Zero
+    $Global:UM_ScannedFiles        = 0
+    $Global:UM_TotalFiles          = 0
+
+    # Phase 1 output (static)
     UM-OutputScanPhase -Context $Context
 
     # Read unified log
-    $unifiedLog = UM-ReadUnifiedLog
-    $scanLog = @()
-    if ($unifiedLog) {
-        $scanLog = $unifiedLog | Where-Object { $_.Type -eq "Scan" }
-    }
+	$unifiedLog = UM-ReadUnifiedLog
+	$scanLog = @()
 
+	if ($unifiedLog) {
+		$scanLog = $unifiedLog |
+			Where-Object {
+				$_.Type -eq "Scan" -and
+				$_.Path -like "$($Context.RootPath)*"
+			}
+	}
+
+    # Detect if this library was already scanned
+    $existing = $scanLog | Where-Object { $_.Path -like "$($Context.RootPath)*" }
+
+    # NEW: store the flag
+    $Global:UM_AlreadyScanned = ($existing.Count -gt 0)
+
+    # Determine files to scan
     $scanAllRef = [ref]$false
     $allFiles = Get-UMFilesToScan -RootPath $Context.RootPath -LibraryType $Context.LibraryType -ScanAllEpisodesRef $scanAllRef
 
     $Context | Add-Member -NotePropertyName ScanAllEpisodes -NotePropertyValue $scanAllRef.Value -Force
 
-    $totalFiles   = $allFiles.Count
-    $scannedFiles = 0
-    $startTime    = Get-Date
+    $totalFiles = $allFiles.Count
+    $Global:UM_TotalFiles = $totalFiles
+
+    $previouslyScanned = $scanLog.Count
+	$scannedFiles = $previouslyScanned
 
     foreach ($file in $allFiles) {
 
@@ -191,19 +257,22 @@ function Invoke-UMScan {
             continue
         }
 
+        # Start per-file timer
+        UM-StartFileTimer
+
+        # update counters
         $scannedFiles++
 
-        $elapsed = (Get-Date) - $startTime
+        # emit ONE progress object
+        Write-Output ([pscustomobject]@{
+            Type    = "ScanProgress"
+            File    = $file.FullName
+            Elapsed = UM-GetElapsed
+            Scanned = $scannedFiles
+            Total   = $totalFiles
+        })
 
-        # --------------------------------------------
-        # Phase 2 Output (per file)
-        # --------------------------------------------
-        UM-OutputScanProgress `
-            -File $file `
-            -Elapsed $elapsed `
-            -ScannedFiles $scannedFiles `
-            -TotalFiles $totalFiles
-
+        # Perform scan
         $errors = Invoke-UMScanFile -FilePath $file.FullName
 
         $scanEntry = [PSCustomObject]@{
@@ -232,8 +301,16 @@ function Invoke-UMScan {
         }
     }
 
-    # --------------------------------------------
-    # Final Output
-    # --------------------------------------------
+    # Emit final progress update
+	Write-Output ([pscustomobject]@{
+		Type    = "ScanProgress"
+		File    = $null
+		Elapsed = UM-GetElapsed
+		Scanned = $ScanLog.Count
+		Total   = $Global:UM_TotalFiles
+	})
+    Start-Sleep -Milliseconds 200
+
+    # Final output
     UM-OutputScanComplete
 }

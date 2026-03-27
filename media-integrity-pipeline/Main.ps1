@@ -1,3 +1,8 @@
+# =====================================================================
+# Main.ps1 — Entry point for Unified Media Integrity Pipeline
+# Updated to remove console output and use centralized Output module
+# =====================================================================
+
 param(
     [string]$Mode = "Full",          # Full, ScanOnly, RepairOnly
     [string]$RootPath = $null,       # Optional override

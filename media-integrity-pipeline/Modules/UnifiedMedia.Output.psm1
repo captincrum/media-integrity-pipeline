@@ -21,22 +21,7 @@ function UM-Output {
 function UM-OutputScanPhase {
     param($Context)
 
-    UM-Output "Phase 1      : Checking for Previous Work"
-    UM-Output "Library Type : $($Context.LibraryType)"
-    UM-Output "Root Path    : $($Context.RootPath)"
-    UM-Output "Mode         : $($Context.Mode)"
-    UM-Output ""
-}
-
-function UM-OutputScanProgress {
-    param(
-        [Parameter(Mandatory=$true)]$File,
-        [Parameter(Mandatory=$true)]$Elapsed,
-        [Parameter(Mandatory=$true)]$ScannedFiles,
-        [Parameter(Mandatory=$true)]$TotalFiles
-    )
-
-    # Clear screen (GUI or CLI)
+    # Clear screen ONCE for Phase 1
     if ($Global:IsGUI -and $Global:AppendConsole) {
         & $Global:AppendConsole "__CLEAR__"
     }
@@ -44,16 +29,46 @@ function UM-OutputScanProgress {
         Clear-Host
     }
 
-    $percent = if ($TotalFiles -gt 0) {
-        [math]::Round(($ScannedFiles / $TotalFiles) * 100)
+    UM-Output "Phase 1      : Checking Unifiedlog.json"
+    UM-Output "Library Type : $($Context.LibraryType)"
+    UM-Output "Root Path    : $($Context.RootPath)"
+    UM-Output "Mode         : $($Context.Mode)"
+    UM-Output ""
+
+    # ⭐ Pause so Phase 1 is visible
+    Start-Sleep -Milliseconds 1250
+}
+
+function UM-OutputScanProgressLive {
+
+    # If no scan is running, do nothing
+    if (-not $Global:UM_TotalFiles -or $Global:UM_TotalFiles -eq 0) {
+        return
+    }
+
+    $file        = $Global:UM_CurrentScanFile
+    $elapsed     = $Global:UM_CurrentScanElapsed
+    $fileElapsed = $Global:UM_CurrentFileElapsed
+    $scanned     = $Global:UM_ScannedFiles
+    $total       = $Global:UM_TotalFiles
+
+    $percent = if ($total -gt 0) {
+        [math]::Round(($scanned / $total) * 100)
     } else { 0 }
 
+    # Clear screen EVERY TICK for Phase 2 (live updates)
+    if ($Global:IsGUI -and $Global:AppendConsole) {
+        & $Global:AppendConsole "__CLEAR__"
+    }
+    else {
+        Clear-Host
+    }
+
     UM-Output ("{0,-13} : {1}" -f "Phase 2",        "Scanning & Logging")
-    UM-Output ("{0,-13} : {1}" -f "Scanning File",  $File.FullName)
-    UM-Output ("{0,-13} : {1}" -f "Elapsed Time",   $Elapsed.ToString('hh\:mm\:ss'))
-    UM-Output ("{0,-13} : {1}" -f "Scanned",        "$ScannedFiles/$TotalFiles")
+    UM-Output ("{0,-13} : {1}" -f "Scanning File",  $file)
+    UM-Output ("{0,-13} : {1}" -f "Elapsed Time",   $elapsed.ToString('hh\:mm\:ss'))
+    UM-Output ("{0,-13} : {1}" -f "Scanned",        "$scanned/$total")
     UM-Output ("{0,-13} : {1}" -f "Completion",     "$percent%")
-    UM-Output ""
 }
 
 # ---------------------------------------------------------------------
@@ -67,20 +82,11 @@ function UM-OutputRepairHeader {
         [Parameter(Mandatory=$true)][string]$AttemptTime
     )
 
-    # --- NEW: CLEAR SCREEN ---
-    if ($Global:IsGUI -and $Global:AppendConsole) {
-        & $Global:AppendConsole "__CLEAR__"
-    }
-    else {
-        Clear-Host
-    }
-
-	UM-Output "----------------------------------------"; [Console]::Out.Flush()
-	UM-Output "Repairing           : $SourcePath";      [Console]::Out.Flush()
-	UM-Output "Repair Attempt      : $AttemptCount";    [Console]::Out.Flush()
-	UM-Output "Attempt Time        : $AttemptTime";     [Console]::Out.Flush()
-	UM-Output "----------------------------------------"; [Console]::Out.Flush()
-
+    UM-Output "Phase 3          : Repairing & Logging"; 
+    UM-Output "Repairing        : $SourcePath";         
+    UM-Output "Repair Attempt   : $AttemptCount";       
+    UM-Output "Attempt Time     : $AttemptTime";        
+    UM-Output "----------------------------------------"; 
 }
 
 function UM-OutputRepairProgress {
@@ -90,16 +96,48 @@ function UM-OutputRepairProgress {
         [Parameter(Mandatory=$true)][string]$FileTime,
         [Parameter(Mandatory=$true)][string]$StageFriendly,
         [Parameter(Mandatory=$true)][int]$CRF,
-        [Parameter(Mandatory=$true)][string]$SessionTime
+        [Parameter(Mandatory=$true)][string]$SessionTime,
+        [Parameter(Mandatory=$true)][string]$SourcePath,
+        [Parameter(Mandatory=$true)][int]$AttemptCount,
+        [Parameter(Mandatory=$true)][string]$AttemptTime
     )
 
-	UM-Output "Repairing File      : $ItemIndex / $TotalItems"; [Console]::Out.Flush()
-	UM-Output "File Time           : $FileTime";                [Console]::Out.Flush()
-	UM-Output "----------------------------------------";        [Console]::Out.Flush()
-	UM-Output "Repair Type         : $StageFriendly (CRF $CRF)"; [Console]::Out.Flush()
-	UM-Output "Session Time        : $SessionTime";             [Console]::Out.Flush()
-	UM-Output "----------------------------------------";        [Console]::Out.Flush()
+    # Clear screen once per tick
+    if ($Global:IsGUI -and $Global:AppendConsole) {
+        & $Global:AppendConsole "__CLEAR__"
+    }
+    else {
+        Clear-Host
+    }
 
+    # Print header
+    UM-OutputRepairHeader `
+        -SourcePath   $SourcePath `
+        -AttemptCount $AttemptCount `
+        -AttemptTime  $AttemptTime
+
+    # Print progress
+    UM-Output "Repairing File   : $ItemIndex / $TotalItems"; 
+    UM-Output "File Time        : $FileTime";                
+    UM-Output "----------------------------------------";        
+	# NEW: Pull latest RepairAttempt from HumanLog
+	$log = UM-ReadUnifiedLog
+	$latestAttempt = $log |
+		Where-Object { $_.Type -eq "RepairAttempt" -and $_.Path -eq $SourcePath } |
+		Sort-Object Timestamp -Descending |
+		Select-Object -First 1
+
+	if ($latestAttempt) {
+		$displayStage = $latestAttempt.StageFriendly
+		$displayCRF   = $latestAttempt.CRF
+	} else {
+		# Fallback to passed-in values (should rarely be needed)
+		$displayStage = $StageFriendly
+		$displayCRF   = $CRF
+	}
+	UM-Output "Repair Type      : $displayStage (CRF $displayCRF)"
+    UM-Output "Session Time     : $SessionTime";             
+    UM-Output "----------------------------------------";        
 }
 
 Export-ModuleMember -Function *
