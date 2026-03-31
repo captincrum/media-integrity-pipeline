@@ -1,10 +1,14 @@
 ﻿{
     "RootPath":  "D:\\Shows\\Goosebumps",
     "RepairedPath":  "D:\\Temp",
-    "Mode":  "Full",
-    "ScanAllEpisodes":  true,
-    "WindowLeft":  null,
-    "WindowTop":  null,
-    "WindowWidth":  800,
-    "WindowHeight":  480
+    "Mode":  "ScanOnly",
+    "ScanAllEpisodes":  false,
+    "WindowLeft":  538,
+    "WindowTop":  614.66666666666663,
+    "WindowWidth":  1134.6666666666665,
+    "WindowHeight":  612,
+    "LastMainWindowWidth":  478,
+    "LogPanelWidth":  656.66666666666652,
+    "HumanLog":  true,
+    "MachineLog":  false
 }

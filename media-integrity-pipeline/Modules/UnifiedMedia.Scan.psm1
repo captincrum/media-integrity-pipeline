@@ -218,7 +218,7 @@ function Invoke-UMScan {
     $Global:UM_TotalFiles          = 0
 
     # Phase 1 output (static)
-    UM-OutputScanPhase -Context $Context
+    UM-OutputPhaseOne -Context $Context
 
     # Read unified log
 	$unifiedLog = UM-ReadUnifiedLog

@@ -35,16 +35,12 @@ function Invoke-UMRepair {
         return "No items in UnifiedLog.json to repair. Try scanning a new library."
     }
 
-    
     # Session variables
-    
     $totalItems    = $queue.Count
     $sessionStart  = Get-Date
     $itemIndex     = 0
 
-    
     # Helper: Scan file for errors
-    
     function Invoke-ScanFile {
         param([string]$FilePath)
 
@@ -77,9 +73,7 @@ function Invoke-UMRepair {
         return $errors
     }
 
-    
     # Helper: Quality check
-    
     function Invoke-QualityCheckInternal {
         param(
             [string]$Original,
@@ -136,9 +130,7 @@ function Invoke-UMRepair {
         }
     }
 
-    
     # Helper: Run a repair stage (NO GUI OUTPUT HERE)
-    
     function Invoke-RepairStage {       
         param(
             [string]   $StageName,
@@ -150,7 +142,6 @@ function Invoke-UMRepair {
             [string[]] $ExtraArgs
         )
 
-        # Build ffmpeg args
         $argList = @("-y", "-i", $SourcePath)
 
         if ($VideoMode) {
@@ -201,24 +192,18 @@ function Invoke-UMRepair {
             }
         }
 
-		UM-LogRepairAttempt `
-			-Path           $attempt.Path `
-			-StageFriendly  $friendlyNames[$stage.Name] `
-			-OutputPath     $attempt.OutputPath `
-			-CRF            $attempt.CRF `
-			-OriginalSizeMB $attempt.OriginalSizeMB `
-			-RepairedSizeMB $attempt.RepairedSizeMB `
-			-SizeRatio      $attempt.SizeRatio `
-			-ErrorsAfter    $attempt.ErrorsAfter
+        UM-LogRepairAttempt `
+            -Path           $attempt.Path `
+            -StageFriendly  $friendlyNames[$StageName] `
+            -OutputPath     $attempt.OutputPath `
+            -CRF            $attempt.CRF `
+            -OriginalSizeMB $attempt.OriginalSizeMB `
+            -RepairedSizeMB $attempt.RepairedSizeMB `
+            -SizeRatio      $attempt.SizeRatio `
+            -ErrorsAfter    $attempt.ErrorsAfter
 
-
-        if ($repairedSize -gt ($originalSize * 1.5)) {
-            return $false
-        }
-
-        if ($exitCode -ne 0) {
-            return $false
-        }
+        if ($repairedSize -gt ($originalSize * 1.5)) { return $false }
+        if ($exitCode -ne 0) { return $false }
 
         return ($attempt.ErrorsAfter.Count -eq 0)
     }
@@ -238,24 +223,17 @@ function Invoke-UMRepair {
             continue
         }
 
-        # Per-file start time
         $fileStart = Get-Date
 
-        
-        # NEW: Centralized path logic
-        
         $paths = UM-GetRepairedOutputPath -Context $Context -SourcePath $sourcePath
 
         $targetFullDir     = $paths.Directory
         $baseName          = $paths.BaseName
         $targetPathSameExt = $paths.SameExtPath
-        $targetPathMp4     = $paths.Mp4Path
 
         $libraryType = $Context.LibraryType
 
-        
         # Repair stages
-        
         $repairStages = @(
             @{ Name="Remux";                   Video=$null;     Audio=$null; Extra=@();                   ForceExt=$null  },
             @{ Name="ReencodeVideo_CopyAudio"; Video="libx264"; Audio="copy"; Extra=@();                   ForceExt=$null  },
@@ -264,8 +242,6 @@ function Invoke-UMRepair {
             @{ Name="LastResortMp4";           Video="libx264"; Audio="aac";  Extra=@("-preset","medium"); ForceExt=".mp4" }
         )
 
-        
-        # Stage variables
         $success            = $false
         $successfulStage    = $null
         $finalQualityStatus = "Unknown"
@@ -278,7 +254,7 @@ function Invoke-UMRepair {
             "LastResortMp4"           = "Emergency Conversion"
         }
 
-        # --- RESUME CONTEXT FOR THIS FILE ---
+        # --- RESUME CONTEXT ---
         $log = UM-ReadUnifiedLog
 
         $attempts = $log | Where-Object {
@@ -290,7 +266,6 @@ function Invoke-UMRepair {
         }
 
         $previousAttempts = $attempts.Count
-        # What you see as "Repair Attempt" in the UI
         $attemptCount     = $previousAttempts
 
         $lastAttempt = $attempts |
@@ -312,7 +287,6 @@ function Invoke-UMRepair {
 
         if ($lastAttempt) {
 
-            # Map StageFriendly back to internal stage name
             $resumeStageName = ($friendlyNames.GetEnumerator() |
                 Where-Object { $_.Value -eq $lastAttempt.StageFriendly } |
                 Select-Object -First 1).Key
@@ -330,25 +304,23 @@ function Invoke-UMRepair {
             $hasHardFailure = ($lastAttempt.ErrorsAfter.Count -gt 0) -or ($lastAttempt.SizeRatio -gt 1.5)
 
             if (-not $hasQuality -and -not $hasHardFailure) {
-                # ✅ Interrupted mid‑stage: re‑run SAME stage + SAME CRF
                 $interrupted = $true
                 $resumeCRF   = [int]$lastAttempt.CRF
             }
             else {
-                # ✅ Stage already "decided" (pass/fail/oversize) → move to NEXT stage
                 if ($startStageIndex -lt ($repairStages.Count - 1)) {
                     $startStageIndex++
                 }
             }
         }
 
-        # --- MAIN STAGE LOOP (resume‑aware) ---
+        # --- MAIN STAGE LOOP ---
         for ($stageIndex = $startStageIndex; $stageIndex -lt $repairStages.Count; $stageIndex++) {
             if ($success) { break }
 
             $stage = $repairStages[$stageIndex]
 
-            # If resuming an interrupted attempt, keep its CRF
+            # Resume-aware CRF
             $currentCRF = if ($interrupted -and $stage.Name -eq $resumeStageName) {
                 $resumeCRF
             } else {
@@ -365,23 +337,22 @@ function Invoke-UMRepair {
                     $targetPathSameExt
                 }
 
-                # --- GUI OUTPUT ---
-                $attemptTime = ((Get-Date) - $fileStart).ToString("hh\:mm\:ss")
-                $fileTime    = $attemptTime
-                $sessionTime = ((Get-Date) - $sessionStart).ToString("hh\:mm\:ss")
+                #
+                # Emit structured Phase 3 signal for GUI
+                #
+                Write-Output ([pscustomobject]@{
+                    Type         = "RepairProgress"
+                    ItemIndex    = $itemIndex
+                    TotalItems   = $totalItems
+                    StageFriendly= $friendlyNames[$stage.Name]
+                    CRF          = $currentCRF
+                    SourcePath   = $sourcePath
+                    AttemptCount = $attemptCount
+                })
 
-                UM-OutputRepairProgress `
-                    -ItemIndex     $itemIndex `
-                    -TotalItems    $totalItems `
-                    -FileTime      $fileTime `
-                    -StageFriendly $friendlyNames[$stage.Name] `
-                    -CRF           $currentCRF `
-                    -SessionTime   $sessionTime `
-                    -SourcePath    $sourcePath `
-                    -AttemptCount  ($attemptCount) `
-                    -AttemptTime   $attemptTime
-
+                #
                 # Run the stage
+                #
                 $stageSuccess = Invoke-RepairStage `
                     -StageName   $stage.Name `
                     -SourcePath  $sourcePath `
@@ -392,13 +363,26 @@ function Invoke-UMRepair {
                     -ExtraArgs   $stage.Extra
 
                 $attemptCount++
+				
+				# Emit progress again after the attempt finishes
+				Write-Output ([pscustomobject]@{
+					Type         = "RepairProgress"
+					ItemIndex    = $itemIndex
+					TotalItems   = $totalItems
+					StageFriendly= $friendlyNames[$stage.Name]
+					CRF          = $currentCRF
+					SourcePath   = $sourcePath
+					AttemptCount = $attemptCount
+				})
 
                 if (-not $stageSuccess) {
                     $stageDone = $true
                     break
                 }
 
+                #
                 # QUALITY CHECK
+                #
                 $qualityResult = Invoke-QualityCheckInternal `
                     -Original  $sourcePath `
                     -Repaired  $outputPath `
@@ -406,8 +390,17 @@ function Invoke-UMRepair {
                     -CRF       $currentCRF
 
                 $finalQualityStatus = $qualityResult.QualityStatus
+				# Emit progress after quality check
+				Write-Output ([pscustomobject]@{
+					Type         = "RepairProgress"
+					ItemIndex    = $itemIndex
+					TotalItems   = $totalItems
+					StageFriendly= $friendlyNames[$stage.Name]
+					CRF          = $currentCRF
+					SourcePath   = $sourcePath
+					AttemptCount = $attemptCount
+				})
 
-                # SUCCESS LOGIC (with LastResort override)
                 if ($stage.Name -eq "LastResortMp4") {
                     $success         = $true
                     $stageDone       = $true
@@ -427,14 +420,12 @@ function Invoke-UMRepair {
                     }
                 }
                 else {
-                    # Quality failed and cannot retry → fail this stage
                     $stageDone = $true
                 }
             }
         }
 
-
-        # Final result logging + cleanup
+        # Final result logging
         if ($success) {
 
             if ($successfulStage -eq "LastResortMp4") {
