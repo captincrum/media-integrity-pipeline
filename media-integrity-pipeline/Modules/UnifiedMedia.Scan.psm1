@@ -182,15 +182,15 @@ function Invoke-UMShowEscalation {
         }
 
         #
-        # ⭐ Emit ScanProgress for GUI (critical for Phase 2 updates)
+        # Emit ScanProgress for GUI (critical for Phase 2 updates)
         #
-        Write-Output ([pscustomobject]@{
-            Type    = "ScanProgress"
-            File    = $ep.FullName
-            Elapsed = UM-GetElapsed
-            Scanned = $ScanLog.Value.Count
-            Total   = $Global:UM_TotalFiles
-        })
+		Write-Output ([pscustomobject]@{
+			Type    = "ScanProgress"
+			File    = $file.FullName      # or $file.FullName / $null
+			Elapsed = (UM-GetElapsed).ToString("hh\:mm\:ss")
+			Scanned = $ScanLog.Value.Count  # or $scannedFiles / $ScanLog.Count
+			Total   = $Global:UM_TotalFiles
+		})
     }
 }
 
@@ -264,13 +264,14 @@ function Invoke-UMScan {
         $scannedFiles++
 
         # emit ONE progress object
-        Write-Output ([pscustomobject]@{
-            Type    = "ScanProgress"
-            File    = $file.FullName
-            Elapsed = UM-GetElapsed
-            Scanned = $scannedFiles
-            Total   = $totalFiles
-        })
+		Write-Output ([pscustomobject]@{
+			Type    = "ScanProgress"
+			File    = $file.FullName      # or $file.FullName / $null
+			Elapsed = (UM-GetElapsed).ToString("hh\:mm\:ss")
+			Scanned = $ScanLog.Value.Count  # or $scannedFiles / $ScanLog.Count
+			Total   = $Global:UM_TotalFiles
+		})
+
 
         # Perform scan
         $errors = Invoke-UMScanFile -FilePath $file.FullName
@@ -304,13 +305,15 @@ function Invoke-UMScan {
     # Emit final progress update
 	Write-Output ([pscustomobject]@{
 		Type    = "ScanProgress"
-		File    = $null
-		Elapsed = UM-GetElapsed
-		Scanned = $ScanLog.Count
+		File    = $file.FullName      # or $file.FullName / $null
+		Elapsed = (UM-GetElapsed).ToString("hh\:mm\:ss")
+		Scanned = $ScanLog.Value.Count  # or $scannedFiles / $ScanLog.Count
 		Total   = $Global:UM_TotalFiles
 	})
+	
     Start-Sleep -Milliseconds 200
 
     # Final output
     UM-OutputScanComplete
+	return $null
 }

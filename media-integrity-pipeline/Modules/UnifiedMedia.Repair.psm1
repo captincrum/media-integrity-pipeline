@@ -329,101 +329,133 @@ function Invoke-UMRepair {
 
             $stageDone = $false
 
-            while (-not $stageDone) {
+			while (-not $stageDone) {
 
-                $outputPath = if ($stage.ForceExt) {
-                    Join-Path $targetFullDir ($baseName + $stage.ForceExt)
-                } else {
-                    $targetPathSameExt
-                }
+				$outputPath = if ($stage.ForceExt) {
+					Join-Path $targetFullDir ($baseName + $stage.ForceExt)
+				} else {
+					$targetPathSameExt
+				}
 
-                #
-                # Emit structured Phase 3 signal for GUI
-                #
-                Write-Output ([pscustomobject]@{
-                    Type         = "RepairProgress"
-                    ItemIndex    = $itemIndex
-                    TotalItems   = $totalItems
-                    StageFriendly= $friendlyNames[$stage.Name]
-                    CRF          = $currentCRF
-                    SourcePath   = $sourcePath
-                    AttemptCount = $attemptCount
-                })
+				# start-of-attempt timestamp
+				$attemptStart = Get-Date
 
-                #
-                # Run the stage
-                #
-                $stageSuccess = Invoke-RepairStage `
-                    -StageName   $stage.Name `
-                    -SourcePath  $sourcePath `
-                    -OutputPath  $outputPath `
-                    -VideoMode   $stage.Video `
-                    -AudioMode   $stage.Audio `
-                    -CRF         $currentCRF `
-                    -ExtraArgs   $stage.Extra
+				#
+				# Emit structured Phase 3 signal for GUI (before attempt)
+				#
+				$now            = Get-Date
+				$attemptElapsed = $now - $attemptStart
+				$fileElapsed    = $now - $fileStart
+				$sessionElapsed = $now - $sessionStart
 
-                $attemptCount++
-				
+				Write-Output ([pscustomobject]@{
+					Type          = "RepairProgress"
+					ItemIndex     = $itemIndex
+					TotalItems    = $totalItems
+					StageFriendly = $friendlyNames[$stage.Name]
+					CRF           = $currentCRF
+					SourcePath    = $sourcePath
+					AttemptCount  = $attemptCount
+
+					AttemptTime   = $attemptElapsed.ToString("hh\:mm\:ss")
+					FileTime      = $fileElapsed.ToString("hh\:mm\:ss")
+					Elapsed       = $sessionElapsed.ToString("hh\:mm\:ss")
+				})
+
+				#
+				# Run the stage
+				#
+				$stageSuccess = Invoke-RepairStage `
+					-StageName   $stage.Name `
+					-SourcePath  $sourcePath `
+					-OutputPath  $outputPath `
+					-VideoMode   $stage.Video `
+					-AudioMode   $stage.Audio `
+					-CRF         $currentCRF `
+					-ExtraArgs   $stage.Extra
+
+				$attemptCount++
+
 				# Emit progress again after the attempt finishes
+				$now            = Get-Date
+				$attemptElapsed = $now - $attemptStart
+				$fileElapsed    = $now - $fileStart
+				$sessionElapsed = $now - $sessionStart
+
 				Write-Output ([pscustomobject]@{
-					Type         = "RepairProgress"
-					ItemIndex    = $itemIndex
-					TotalItems   = $totalItems
-					StageFriendly= $friendlyNames[$stage.Name]
-					CRF          = $currentCRF
-					SourcePath   = $sourcePath
-					AttemptCount = $attemptCount
+					Type          = "RepairProgress"
+					ItemIndex     = $itemIndex
+					TotalItems    = $totalItems
+					StageFriendly = $friendlyNames[$stage.Name]
+					CRF           = $currentCRF
+					SourcePath    = $sourcePath
+					AttemptCount  = $attemptCount
+
+					AttemptTime   = $attemptElapsed.ToString("hh\:mm\:ss")
+					FileTime      = $fileElapsed.ToString("hh\:mm\:ss")
+					Elapsed       = $sessionElapsed.ToString("hh\:mm\:ss")
 				})
 
-                if (-not $stageSuccess) {
-                    $stageDone = $true
-                    break
-                }
+				if (-not $stageSuccess) {
+					$stageDone = $true
+					break
+				}
 
-                #
-                # QUALITY CHECK
-                #
-                $qualityResult = Invoke-QualityCheckInternal `
-                    -Original  $sourcePath `
-                    -Repaired  $outputPath `
-                    -StageName $stage.Name `
-                    -CRF       $currentCRF
+				#
+				# QUALITY CHECK
+				#
+				$qualityResult = Invoke-QualityCheckInternal `
+					-Original  $sourcePath `
+					-Repaired  $outputPath `
+					-StageName $stage.Name `
+					-CRF       $currentCRF
 
-                $finalQualityStatus = $qualityResult.QualityStatus
+				$finalQualityStatus = $qualityResult.QualityStatus
+
 				# Emit progress after quality check
+				$now            = Get-Date
+				$attemptElapsed = $now - $attemptStart
+				$fileElapsed    = $now - $fileStart
+				$sessionElapsed = $now - $sessionStart
+
 				Write-Output ([pscustomobject]@{
-					Type         = "RepairProgress"
-					ItemIndex    = $itemIndex
-					TotalItems   = $totalItems
-					StageFriendly= $friendlyNames[$stage.Name]
-					CRF          = $currentCRF
-					SourcePath   = $sourcePath
-					AttemptCount = $attemptCount
+					Type          = "RepairProgress"
+					ItemIndex     = $itemIndex
+					TotalItems    = $totalItems
+					StageFriendly = $friendlyNames[$stage.Name]
+					CRF           = $currentCRF
+					SourcePath    = $sourcePath
+					AttemptCount  = $attemptCount
+
+					AttemptTime   = $attemptElapsed.ToString("hh\:mm\:ss")
+					FileTime      = $fileElapsed.ToString("hh\:mm\:ss")
+					Elapsed       = $sessionElapsed.ToString("hh\:mm\:ss")
 				})
 
-                if ($stage.Name -eq "LastResortMp4") {
-                    $success         = $true
-                    $stageDone       = $true
-                    $successfulStage = $stage.Name
-                }
-                elseif ($qualityResult.Result -eq "Pass") {
-                    $success         = $true
-                    $stageDone       = $true
-                    $successfulStage = $stage.Name
-                }
-                elseif ($qualityResult.Result -eq "RetrySameStage") {
-                    $nextCRF = [int]$qualityResult.NextCRF
-                    if ($nextCRF -ge $currentCRF -or $nextCRF -lt 1) {
-                        $stageDone = $true
-                    } else {
-                        $currentCRF = $nextCRF
-                    }
-                }
-                else {
-                    $stageDone = $true
-                }
-            }
-        }
+				if ($stage.Name -eq "LastResortMp4") {
+					$success         = $true
+					$stageDone       = $true
+					$successfulStage = $stage.Name
+				}
+				elseif ($qualityResult.Result -eq "Pass") {
+					$success         = $true
+					$stageDone       = $true
+					$successfulStage = $stage.Name
+				}
+				elseif ($qualityResult.Result -eq "RetrySameStage") {
+					$nextCRF = [int]$qualityResult.NextCRF
+					if ($nextCRF -ge $currentCRF -or $nextCRF -lt 1) {
+						$stageDone = $true
+					} else {
+						$currentCRF = $nextCRF
+					}
+				}
+				else {
+					$stageDone = $true
+				}
+			}
+
+		}
 
         # Final result logging
         if ($success) {

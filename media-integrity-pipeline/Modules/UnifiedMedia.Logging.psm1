@@ -1,41 +1,26 @@
 # =====================================================================
-# UnifiedMedia.Logging.psm1 — Dual Log System (Human + Machine)
+# UnifiedMedia.Logging.psm1 — Machine Log Only (NDJSON)
 # =====================================================================
 
 function UM-LogInit {
-    if (-not $Global:UnifiedHumanLogPath) {
-        throw "UnifiedHumanLogPath must be set before calling UM-LogInit."
-    }
     if (-not $Global:UnifiedMachineLogPath) {
         throw "UnifiedMachineLogPath must be set before calling UM-LogInit."
     }
 
-    foreach ($path in @($Global:UnifiedHumanLogPath, $Global:UnifiedMachineLogPath)) {
-        $dir = Split-Path $path -Parent
-        if (-not (Test-Path $dir)) {
-            New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        }
-        if (-not (Test-Path $path)) {
-            "[]" | Set-Content -Path $path -Encoding UTF8
-        }
+    $path = $Global:UnifiedMachineLogPath
+    $dir  = Split-Path $path -Parent
+
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+
+    if (-not (Test-Path $path)) {
+        "" | Set-Content -Path $path -Encoding UTF8
     }
 }
 
 # =====================================================================
-# Canonical Field Order
-# =====================================================================
-
-$Global:UM_FieldOrder = @(
-    "Type","Path","Original","Comparison","Library",
-    "StageInternal","StageFriendly","OutputPath","CRF",
-    "OriginalSizeMB","RepairedSizeMB","SizeRatio",
-    "Errors","ErrorsAfter","RepairStatus","QualityStatus",
-    "PercentAchieved","Distance","AttemptedAt","CheckedAt",
-    "RepairedAt","AddedAt","Timestamp"
-)
-
-# =====================================================================
-# Machine Log Reader
+# Machine Log Reader (NDJSON)
 # =====================================================================
 
 function UM-ReadUnifiedLog {
@@ -43,14 +28,11 @@ function UM-ReadUnifiedLog {
         return @()
     }
 
-    # Read file line-by-line (NDJSON format)
     $lines = Get-Content $Global:UnifiedMachineLogPath
-	
+
     $objects = foreach ($line in $lines) {
         $trim = $line.Trim()
-
-        # Skip empty lines or the initial []
-        if ($trim -eq "" -or $trim -eq "[]") { continue }
+        if ($trim -eq "") { continue }
 
         try {
             $trim | ConvertFrom-Json
@@ -64,7 +46,7 @@ function UM-ReadUnifiedLog {
 }
 
 # =====================================================================
-# Append Entry to Both Logs
+# Append Entry to Machine Log Only
 # =====================================================================
 
 function UM-AppendLogEntry {
@@ -73,80 +55,9 @@ function UM-AppendLogEntry {
     # Add timestamp
     $Entry["Timestamp"] = (Get-Date).ToString("s")
 
-    # ---------------------------------------------------------------
-    # MACHINE LOG (strict JSON)
-    # ---------------------------------------------------------------
+    # MACHINE LOG ONLY
     $machineJson = $Entry | ConvertTo-Json -Depth 10 -Compress
     Add-Content -Path $Global:UnifiedMachineLogPath -Value ($machineJson + "`n")
-
-    # ---------------------------------------------------------------
-    # HUMAN LOG (aligned, pretty JSON)
-    # ---------------------------------------------------------------
-
-    # Build ordered key list
-    $orderedKeys = @()
-    $orderedKeys += ($Global:UM_FieldOrder | Where-Object { $Entry.ContainsKey($_) })
-    $orderedKeys += ($Entry.Keys | Where-Object { $_ -notin $Global:UM_FieldOrder })
-
-    # Determine max key length for alignment
-    $maxKeyLen = ($orderedKeys | Measure-Object -Maximum Length).Maximum
-
-    # Build JSON lines
-    $jsonLines = @()
-    $jsonLines += "{"
-
-    $i = 0
-    foreach ($key in $orderedKeys) {
-        $value = $Entry[$key]
-
-        # Format value
-        if ($value -is [string]) {
-            $valText = '"' + ($value.Replace('\','\\').Replace('"','\"')) + '"'
-        }
-        elseif ($value -is [array]) {
-            if ($value.Count -eq 0) {
-                $valText = "[]"
-            }
-            else {
-                $escaped = $value | ForEach-Object { '"' + ($_ -replace '"','\"') + '"' }
-                $valText = "[ " + ($escaped -join ", ") + " ]"
-            }
-        }
-        else {
-            $valText = $value
-        }
-
-        # Align colons
-        $padding = " " * ($maxKeyLen - $key.Length)
-        $comma = if ($i -lt $orderedKeys.Count - 1) { "," } else { "" }
-
-        $jsonLines += ('    "' + $key + '"' + $padding + ' : ' + $valText + $comma)
-        $i++
-    }
-
-    $jsonLines += "}"
-    $entryJson = $jsonLines -join "`n"
-
-    # Append to human log
-    $raw = Get-Content $Global:UnifiedHumanLogPath -Raw
-    $trim = $raw.Trim()
-
-    if ($trim -eq "" -or $trim -eq "[]") {
-        $newContent = "[`n$entryJson`n]"
-    }
-    else {
-        $last = $trim.LastIndexOf(']')
-        $before = $trim.Substring(0, $last).TrimEnd()
-
-        if ($before.EndsWith("[")) {
-            $newContent = "$before`n$entryJson`n]"
-        }
-        else {
-            $newContent = "$before,`n$entryJson`n]"
-        }
-    }
-
-    Set-Content -Path $Global:UnifiedHumanLogPath -Value $newContent -Encoding UTF8
 }
 
 # =====================================================================
@@ -211,7 +122,6 @@ function UM-LogRepairAttempt {
         ErrorsAfter    = $ErrorsAfter
     })
 }
-
 
 function UM-LogQuality {
     param(
