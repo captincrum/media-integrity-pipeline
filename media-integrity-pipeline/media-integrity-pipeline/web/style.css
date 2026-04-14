@@ -1,0 +1,426 @@
+/* ------------------------[ Core: Theme variables ]---------------------- */
+:root {
+    --bg: #151a28;
+    --bg-elevated: #141a2a;
+    --bg-console: #0e111b;
+    --border-subtle: #282d3e;
+    --text: #e5ebfa;
+    --text-muted: #a9a9b3;
+    --accent: #7c85a3;
+    --accent-strong: #3a78f2;
+    --danger: #d40000;
+}
+
+/* ------------------------[ Core: Global base ]---------------------- */
+.no-select { user-select: none !important; }
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ------------------------[ Layout: Header ]---------------------- */
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: #21242d;
+}
+
+.top-header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+}
+
+.badge.idle { background: #555; }
+.badge.running { background: var(--accent-strong); }
+
+/* ------------------------[ Layout: Shell container ]---------------------- */
+.shell {
+    display: flex;
+    height: calc(100vh - 52px);
+    overflow: hidden;
+    border: 9px solid #0e111b;
+    border-radius: 20px;
+}
+
+/* ------------------------[ Layout: Left pane ]---------------------- */
+.left-pane {
+    width: 25%;
+    min-width: 450px;
+    height: 100%;
+    padding: 20px;
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    gap: 16px;
+}
+
+/* ------------------------[ Layout: Top block (scrollable) ]---------------------- */
+.top-block {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ------------------------[ UI: Group / card ]---------------------- */
+.card.group {
+    background: var(--bg-elevated);
+    border-radius: 20px;
+    padding: 12px 14px;
+
+    /* ------------------------[ TRIPLE BORDER ]--------------------- */
+    border: 5px solid #1b2136;
+    box-shadow:
+        0 0 0 1px #2c3445,
+        0 0 0 1px #32394a;
+}
+
+.group-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+}
+
+/* ------------------------[ UI: Form fields ]---------------------- */
+.field { margin-bottom: 10px; }
+
+.field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.field-row {
+    display: flex;
+    gap: 8px;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border-subtle);
+    background: #0e111b;
+    color: var(--text);
+    font-size: 13px;
+}
+
+/* ------------------------[ UI: Checkbox / radio rows ]---------------------- */
+.checkbox-row,
+.radio-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: var(--text);
+}
+
+/* ------------------------[ UI: Status / console block ]---------------------- */
+.status-group {
+    height: 300px;
+    min-height: 300px;
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.console {
+    margin: 6px 0 0 0;
+    flex: 1;
+    background: var(--bg-console);
+    border-radius: 20px;
+    padding: 8px;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+    color: var(--accent);
+    overflow-y: auto;
+}
+
+/* ------------------------[ UI: Button layout ]---------------------- */
+.bottom-fixed { margin-top: auto; }
+
+.bottom-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.button-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ------------------------[ UI: Base button styles ]---------------------- */
+.btn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+    background: #4a5471;
+    color: white;
+    width: 105px;
+    text-align: center;
+}
+
+#humanLogBtn,
+#machineLogBtn { width: 115px; }
+
+#browseRoot,
+#browseRepaired,
+#clearLogsBtn { width: 80px; }
+
+/* ------------------------[ UI: Button states ]---------------------- */
+.btn.primary.running {
+    background: #21242d !important;
+    border-color: #21242d !important;
+}
+
+.btn.toggle.active:hover { background: #525c7b !important; }
+
+.btn:hover {
+    background: #525c7b;
+    transform: translateY(-1px);
+}
+
+/* ------------------------[ UI: Button variants ]---------------------- */
+.btn.primary,
+.btn.danger {
+    border: 1px solid #4a5471;
+}
+
+.btn.primary:hover,
+.btn.danger:hover {
+    background: #525c7b;
+}
+
+.btn.toggle {
+    border: 1px solid #3a3a3a;
+}
+
+.btn.toggle.active {
+    background: #21242d;
+    border-color: #21242d;
+}
+
+.btn.secondary { background: #4a5471; }
+
+.btn.small {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* ------------------------[ Layout: Splitter ]---------------------- */
+.splitter {
+    width: 8px;
+    cursor: col-resize;
+    background: transparent;
+}
+
+.splitter:hover { background: rgba(255,255,255,0.08); }
+
+/* ------------------------[ Layout: Log pane ]---------------------- */
+.log-pane {
+    width: 0;
+    max-width: 100%;
+    transition: width 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+    overflow: hidden;
+    display: flex;
+    padding: 16px 0;
+}
+
+.log-pane.open {
+    width: 25%;
+    padding-right: 16px;
+}
+
+/* ------------------------[ UI: Live log card ]---------------------- */
+.log-group {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+
+    border: 5px solid #1b2136;
+    box-shadow:
+        0 0 0 1px #2c3445,
+        0 0 0 1px #32394a;
+}
+
+.log-viewer {
+    flex: 1;
+    margin: 6px 0 0 0;
+    background: var(--bg-console);
+    border-radius: 20px;
+    padding: 8px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: var(--text);
+    overflow-y: auto;
+}
+
+.log-footer {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* ------------------------[ UI: Mode selector ]---------------------- */
+.mode-row input[type="radio"] {
+    accent-color: var(--accent-strong);
+}
+
+.mode-row label {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 14px;
+}
+
+.disabled-ui {
+    pointer-events: none;
+    opacity: 0.45;
+}
+
+.log-pane,
+.log-group,
+.log-viewer { user-select: none; }
+
+/* ------------------------[ UI: Modal ]---------------------- */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal.hidden { display: none; }
+
+.modal-content {
+    background: #242424;
+    padding: 20px 28px;
+    border-radius: 8px;
+    width: 520px;
+    color: white;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+}
+
+.modal-content p {
+    text-align: left;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-evenly;
+}
+
+.modal-buttons button {
+    font-size: 14px;
+    padding: 6px 16px;
+    border: 1px solid #666;
+    background: #e1e1e1;
+    color: #000;
+    border-radius: 4px;
+}
+
+#confirmYes {
+    background: #2e3448;
+    width: 95px;
+    color: white;
+    border: none;
+}
+
+#confirmNo {
+    background: #e1e1e1;
+    width: 95px;
+    color: #000;
+    border: none;
+}
+
+#confirmYes:hover,
+#confirmNo:hover {
+    background: #21242d;
+    color: white;
+}
+
+/* ------------------------[ UI: Floating "jump to bottom" ]---------------------- */
+.resume-scroll {
+    position: absolute;
+    bottom: 55px;
+    right: 32px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 800;
+    cursor: pointer;
+    z-index: 50;
+
+    background: #2c375e;
+    color: white;
+    border: 1px solid #1f2538;
+
+    transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.resume-scroll:hover {
+    background: #3a4673;
+    transform: translateY(-1px);
+}
+
+.resume-scroll.hidden { display: none; }
+
+/* ------------------------[ UI: Scrollbar styling ]---------------------- */
+::-webkit-scrollbar { width: 10px; }
+
+::-webkit-scrollbar-track { background: #1a1a1a; }
+
+::-webkit-scrollbar-thumb {
+    background: #333a4e;
+    border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover { background: #434a5e; }
