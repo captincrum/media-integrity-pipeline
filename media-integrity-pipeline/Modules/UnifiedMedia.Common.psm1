@@ -133,27 +133,4 @@ function UM-GetRepairedOutputPath {
     }
 }
 
-function UM-StartTimer {
-    $Global:UM_TimerStart = Get-Date
-}
-
-function UM-GetElapsed {
-    if (-not $Global:UM_TimerStart) { return [timespan]::Zero }
-    return (Get-Date) - $Global:UM_TimerStart
-}
-
-function UM-StartFileTimer {
-    $Global:UM_FileStart = Get-Date
-}
-
-function UM-GetFileElapsed {
-    if (-not $Global:UM_FileStart) { return [timespan]::Zero }
-    return (Get-Date) - $Global:UM_FileStart
-}
-
-function UM-ResetTimers {
-    $Global:UM_TimerStart = $null
-    $Global:UM_FileStart  = $null
-}
-
-Export-ModuleMember -Function UM-LoadJson, UM-SaveJson, UM-CleanupPreviousRepairs, UM-GetRepairedOutputPath, UM-StartTimer, UM-GetElapsed, UM-StartFileTimer, UM-GetFileElapsed, UM-ResetTimers
+Export-ModuleMember -Function UM-LoadJson, UM-SaveJson, UM-CleanupPreviousRepairs, UM-GetRepairedOutputPath

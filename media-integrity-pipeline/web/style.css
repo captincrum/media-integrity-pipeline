@@ -386,8 +386,8 @@ input[type="text"] {
 /* ------------------------[ UI: Floating "jump to bottom" ]---------------------- */
 .resume-scroll {
     position: absolute;
-    bottom: 55px;
-    right: 32px;
+    bottom: 73px;
+    right: 35px;
     width: 40px;
     height: 40px;
     border-radius: 50%;

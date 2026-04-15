@@ -1,3 +1,5 @@
+$Global:UM_ScanStart = Get-Date
+
 function UM-IsScanned {
     param(
         [string]$Path,
@@ -186,9 +188,11 @@ function Invoke-UMShowEscalation {
         #
 		Write-Output ([pscustomobject]@{
 			Type    = "ScanProgress"
-			File    = $file.FullName      # or $file.FullName / $null
-			Elapsed = (UM-GetElapsed).ToString("hh\:mm\:ss")
-			Scanned = $ScanLog.Value.Count  # or $scannedFiles / $ScanLog.Count
+			File    = $file.FullName
+			Elapsed = ([TimeSpan]::FromSeconds(
+				[int]((Get-Date) - $Global:UM_ScanStart).TotalSeconds
+			)).ToString("hh\:mm\:ss")
+			Scanned = $ScanLog.Value.Count
 			Total   = $Global:UM_TotalFiles
 		})
     }
@@ -266,12 +270,13 @@ function Invoke-UMScan {
         # emit ONE progress object
 		Write-Output ([pscustomobject]@{
 			Type    = "ScanProgress"
-			File    = $file.FullName      # or $file.FullName / $null
-			Elapsed = (UM-GetElapsed).ToString("hh\:mm\:ss")
-			Scanned = $ScanLog.Value.Count  # or $scannedFiles / $ScanLog.Count
+			File    = $file.FullName
+			Elapsed = ([TimeSpan]::FromSeconds(
+				[int]((Get-Date) - $Global:UM_ScanStart).TotalSeconds
+			)).ToString("hh\:mm\:ss")
+			Scanned = $ScanLog.Value.Count
 			Total   = $Global:UM_TotalFiles
 		})
-
 
         # Perform scan
         $errors = Invoke-UMScanFile -FilePath $file.FullName
@@ -305,9 +310,11 @@ function Invoke-UMScan {
     # Emit final progress update
 	Write-Output ([pscustomobject]@{
 		Type    = "ScanProgress"
-		File    = $file.FullName      # or $file.FullName / $null
-		Elapsed = (UM-GetElapsed).ToString("hh\:mm\:ss")
-		Scanned = $ScanLog.Value.Count  # or $scannedFiles / $ScanLog.Count
+		File    = $file.FullName
+		Elapsed = ([TimeSpan]::FromSeconds(
+			[int]((Get-Date) - $Global:UM_ScanStart).TotalSeconds
+		)).ToString("hh\:mm\:ss")
+		Scanned = $ScanLog.Value.Count
 		Total   = $Global:UM_TotalFiles
 	})
 	

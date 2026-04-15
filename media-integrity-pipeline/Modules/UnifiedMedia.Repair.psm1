@@ -35,10 +35,16 @@ function Invoke-UMRepair {
         return "No items in UnifiedLog.json to repair. Try scanning a new library."
     }
 
-    # Session variables
-    $totalItems    = $queue.Count
-    $sessionStart  = Get-Date
-    $itemIndex     = 0
+	# Session variables
+	$totalItems    = $queue.Count
+	$sessionStart  = Get-Date
+	$Global:UM_RepairSessionStart = $sessionStart
+	$itemIndex     = 0
+
+
+	# Start session timer (shared elapsed for all repair work)
+#	UM-StartTimer
+
 
     # Helper: Scan file for errors
     function Invoke-ScanFile {
@@ -211,7 +217,10 @@ function Invoke-UMRepair {
     # MAIN REPAIR LOOP
     foreach ($item in $queue) {
         $itemIndex++
-
+		
+		$fileStart = Get-Date
+		$Global:UM_RepairFileStart = $fileStart
+		
         $sourcePath = $item.Path
         if (-not (Test-Path $sourcePath)) {
             UM-LogRepairResult `
@@ -222,8 +231,6 @@ function Invoke-UMRepair {
                 -RepairedAt    (Get-Date).ToString("s")
             continue
         }
-
-        $fileStart = Get-Date
 
         $paths = UM-GetRepairedOutputPath -Context $Context -SourcePath $sourcePath
 
@@ -331,23 +338,31 @@ function Invoke-UMRepair {
 
 			while (-not $stageDone) {
 
+				#
+				# Start attempt timer
+				#
+				$attemptStart = Get-Date
+				$Global:UM_RepairAttemptStart = $attemptStart
+
+				#
+				# Build output path
+				#
 				$outputPath = if ($stage.ForceExt) {
 					Join-Path $targetFullDir ($baseName + $stage.ForceExt)
 				} else {
 					$targetPathSameExt
 				}
 
-				# start-of-attempt timestamp
-				$attemptStart = Get-Date
+				#
+				# Compute timers BEFORE attempt
+				#
+				$attemptTS = ((Get-Date) - $attemptStart).ToString("hh\:mm\:ss")
+				$fileTS    = ((Get-Date) - $fileStart).ToString("hh\:mm\:ss")
+				$sessionTS = ((Get-Date) - $sessionStart).ToString("hh\:mm\:ss")
 
 				#
-				# Emit structured Phase 3 signal for GUI (before attempt)
+				# Emit progress BEFORE attempt
 				#
-				$now            = Get-Date
-				$attemptElapsed = $now - $attemptStart
-				$fileElapsed    = $now - $fileStart
-				$sessionElapsed = $now - $sessionStart
-
 				Write-Output ([pscustomobject]@{
 					Type          = "RepairProgress"
 					ItemIndex     = $itemIndex
@@ -357,9 +372,9 @@ function Invoke-UMRepair {
 					SourcePath    = $sourcePath
 					AttemptCount  = $attemptCount
 
-					AttemptTime   = $attemptElapsed.ToString("hh\:mm\:ss")
-					FileTime      = $fileElapsed.ToString("hh\:mm\:ss")
-					Elapsed       = $sessionElapsed.ToString("hh\:mm\:ss")
+					AttemptTime   = $attemptTS
+					FileTime      = $fileTS
+					Elapsed       = $sessionTS
 				})
 
 				#
@@ -376,12 +391,16 @@ function Invoke-UMRepair {
 
 				$attemptCount++
 
-				# Emit progress again after the attempt finishes
-				$now            = Get-Date
-				$attemptElapsed = $now - $attemptStart
-				$fileElapsed    = $now - $fileStart
-				$sessionElapsed = $now - $sessionStart
+				#
+				# Compute timers AFTER attempt
+				#
+				$attemptTS = ((Get-Date) - $attemptStart).ToString("hh\:mm\:ss")
+				$fileTS    = ((Get-Date) - $fileStart).ToString("hh\:mm\:ss")
+				$sessionTS = ((Get-Date) - $sessionStart).ToString("hh\:mm\:ss")
 
+				#
+				# Emit progress AFTER attempt
+				#
 				Write-Output ([pscustomobject]@{
 					Type          = "RepairProgress"
 					ItemIndex     = $itemIndex
@@ -391,9 +410,9 @@ function Invoke-UMRepair {
 					SourcePath    = $sourcePath
 					AttemptCount  = $attemptCount
 
-					AttemptTime   = $attemptElapsed.ToString("hh\:mm\:ss")
-					FileTime      = $fileElapsed.ToString("hh\:mm\:ss")
-					Elapsed       = $sessionElapsed.ToString("hh\:mm\:ss")
+					AttemptTime   = $attemptTS
+					FileTime      = $fileTS
+					Elapsed       = $sessionTS
 				})
 
 				if (-not $stageSuccess) {
@@ -412,12 +431,16 @@ function Invoke-UMRepair {
 
 				$finalQualityStatus = $qualityResult.QualityStatus
 
-				# Emit progress after quality check
-				$now            = Get-Date
-				$attemptElapsed = $now - $attemptStart
-				$fileElapsed    = $now - $fileStart
-				$sessionElapsed = $now - $sessionStart
+				#
+				# Compute timers AFTER quality check
+				#
+				$attemptTS = ((Get-Date) - $attemptStart).ToString("hh\:mm\:ss")
+				$fileTS    = ((Get-Date) - $fileStart).ToString("hh\:mm\:ss")
+				$sessionTS = ((Get-Date) - $sessionStart).ToString("hh\:mm\:ss")
 
+				#
+				# Emit progress AFTER quality check
+				#
 				Write-Output ([pscustomobject]@{
 					Type          = "RepairProgress"
 					ItemIndex     = $itemIndex
@@ -427,11 +450,14 @@ function Invoke-UMRepair {
 					SourcePath    = $sourcePath
 					AttemptCount  = $attemptCount
 
-					AttemptTime   = $attemptElapsed.ToString("hh\:mm\:ss")
-					FileTime      = $fileElapsed.ToString("hh\:mm\:ss")
-					Elapsed       = $sessionElapsed.ToString("hh\:mm\:ss")
+					AttemptTime   = $attemptTS
+					FileTime      = $fileTS
+					Elapsed       = $sessionTS
 				})
 
+				#
+				# Stage success logic
+				#
 				if ($stage.Name -eq "LastResortMp4") {
 					$success         = $true
 					$stageDone       = $true

@@ -137,9 +137,9 @@ function UM-OutputRepairProgress {
 
 function UM-OutputRepairProgressLive {
 
-    $attemptTS = [TimeSpan]::FromSeconds($Global:UM_AttemptSeconds).ToString("hh\:mm\:ss")
-    $fileTS    = [TimeSpan]::FromSeconds($Global:UM_FileSeconds).ToString("hh\:mm\:ss")
-    $sessionTS = [TimeSpan]::FromSeconds($Global:UM_ElapsedSeconds).ToString("hh\:mm\:ss")
+	$attemptTS = [TimeSpan]::FromSeconds($Global:UM_AttemptSeconds).ToString("hh\:mm\:ss")
+	$fileTS    = [TimeSpan]::FromSeconds($Global:UM_FileSeconds).ToString("hh\:mm\:ss")
+	$sessionTS = [TimeSpan]::FromSeconds($Global:UM_ElapsedSeconds).ToString("hh\:mm\:ss")
 
     Write-Output ([pscustomobject]@{
         Type         = "RepairProgress"

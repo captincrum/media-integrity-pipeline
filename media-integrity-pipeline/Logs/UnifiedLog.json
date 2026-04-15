@@ -1,0 +1,63 @@
+﻿[]
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E01.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:17","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E02.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:17","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E03.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E04.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E05.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E06.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E07.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E08.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E09.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E10.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E11.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:18","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E12.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E13.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E14.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E15.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E16.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E17.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E18.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E19.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E20.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E21.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:19","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E22.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:20","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E23.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:20","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S01E24.mp4","Errors":null,"Timestamp":"2026-04-15T15:13:20","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S02E01.mkv","Errors":null,"Timestamp":"2026-04-15T15:13:20","Library":"Shows"}
+
+{"Type":"Scan","Path":"D:\\Shows\\24\\S02E02.mkv","Errors":null,"Timestamp":"2026-04-15T15:13:20","Library":"Shows"}
+
+{"Type":"Scan","Path":"F:\\Temp\\Shows\\Goosebumps\\S02E02.mkv","Errors":["No video stream detected"],"Timestamp":"2026-04-15T15:13:45","Library":"Shows"}
+
+{"Timestamp":"2026-04-15T15:13:45","Library":"Shows","Errors":["No video stream detected"],"RepairStatus":"Pending","Path":"F:\\Temp\\Shows\\Goosebumps\\S02E02.mkv","Type":"ToRepair","AddedAt":"2026-04-15T15:13:45"}
+
+{"Type":"Scan","Path":"F:\\Temp\\Shows\\Goosebumps\\S07E01.mkv","Errors":["No video stream detected"],"Timestamp":"2026-04-15T15:13:45","Library":"Shows"}
+
+{"Timestamp":"2026-04-15T15:13:45","Library":"Shows","Errors":["No video stream detected"],"RepairStatus":"Pending","Path":"F:\\Temp\\Shows\\Goosebumps\\S07E01.mkv","Type":"ToRepair","AddedAt":"2026-04-15T15:13:45"}
+
+{"CRF":18,"SizeRatio":1,"StageFriendly":"Fast Repair","Type":"RepairAttempt","OriginalSizeMB":32.28,"ErrorsAfter":["No video stream in output file"],"Path":"F:\\Temp\\Shows\\Goosebumps\\S02E02.mkv","OutputPath":"F:\\Temp\\Repaired\\Shows\\Goosebumps\\S02E02.mkv","Timestamp":"2026-04-15T15:13:46","RepairedSizeMB":32.28}
+

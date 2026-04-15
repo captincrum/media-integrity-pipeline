@@ -53,21 +53,45 @@ function UM-RenderHeartbeat {
     switch ($Global:UM_HeartbeatPhase) {
 
         "Phase1" {
-            # No timers in Phase 1
+			
         }
 
         "Phase2" {
             $Global:UM_ElapsedSeconds++
             UM-OutputScanProgressLive
         }
+		
+		"Phase3" {
 
-        "Phase3" {
-            $Global:UM_ElapsedSeconds++
-            $Global:UM_FileSeconds++
-            $Global:UM_AttemptSeconds++
-            UM-OutputRepairProgressLive
-        }
+			# Compute timers every second
+			$attemptTS = if ($Global:UM_RepairAttemptStart) {
+				((Get-Date) - $Global:UM_RepairAttemptStart).ToString("hh\:mm\:ss")
+			} else { "00:00:00" }
 
+			$fileTS = if ($Global:UM_RepairFileStart) {
+				((Get-Date) - $Global:UM_RepairFileStart).ToString("hh\:mm\:ss")
+			} else { "00:00:00" }
+
+			$sessionTS = if ($Global:UM_RepairSessionStart) {
+				((Get-Date) - $Global:UM_RepairSessionStart).ToString("hh\:mm\:ss")
+			} else { "00:00:00" }
+
+			# Emit a heartbeat RepairProgress object
+			Write-Output ([pscustomobject]@{
+				Type          = "RepairProgress"
+				ItemIndex     = $Global:UM_LatestStatus.ItemIndex
+				TotalItems    = $Global:UM_LatestStatus.TotalItems
+				StageFriendly = $Global:UM_LatestStatus.StageFriendly
+				CRF           = $Global:UM_LatestStatus.CRF
+				SourcePath    = $Global:UM_LatestStatus.SourcePath
+				AttemptCount  = $Global:UM_LatestStatus.AttemptCount
+
+				AttemptTime   = $attemptTS
+				FileTime      = $fileTS
+				Elapsed       = $sessionTS
+			})
+		}
+		
         default { }
     }
 }
@@ -162,8 +186,29 @@ function Start-UMPipeline-Core {
 			Invoke-UMScan
 		}
 
-		if ($cfg.Mode -in @("Full","RepairOnly")) {
+		# If FULL mode, we must run repair AFTER scan
+		if ($cfg.Mode -eq "Full") {
+
+			# Set all repair timers BEFORE heartbeat starts Phase 3
+			$Global:UM_RepairSessionStart  = Get-Date
+			$Global:UM_RepairFileStart     = $null
+			$Global:UM_RepairAttemptStart  = $null
+
 			$Global:UM_HeartbeatPhase = "Phase3"
+
+			Invoke-UMRepair -Context $ctx
+		}
+
+		# If REPAIR ONLY mode
+		if ($cfg.Mode -eq "RepairOnly") {
+
+			# Set all repair timers BEFORE heartbeat starts Phase 3
+			$Global:UM_RepairSessionStart  = Get-Date
+			$Global:UM_RepairFileStart     = $null
+			$Global:UM_RepairAttemptStart  = $null
+
+			$Global:UM_HeartbeatPhase = "Phase3"
+
 			Invoke-UMRepair -Context $ctx
 		}
 
