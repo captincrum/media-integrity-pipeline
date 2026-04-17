@@ -1,3 +1,5 @@
+# --------------------------------[   Helpers   ]---------------------------- #
+
 function UM-LoadJson {
     param([string]$Path)
 
@@ -28,7 +30,6 @@ function UM-SaveJson {
         [object]$Data
     )
 
-
     try {
         $dir = Split-Path $Path -Parent
         if ($dir -and -not (Test-Path $dir)) {
@@ -39,7 +40,6 @@ function UM-SaveJson {
 
         $json = $Data | ConvertTo-Json -Depth 6
         $json | Set-Content -Path $Path -Encoding UTF8 -ErrorAction Stop
-
     }
     catch {
         Write-Host "UM-SaveJson: ERROR writing to $Path"
@@ -47,6 +47,72 @@ function UM-SaveJson {
         throw
     }
 }
+
+function UM-PrettyMode {
+    param([string]$Mode)
+
+    switch ($Mode) {
+        "ScanOnly"    { return "Scan Only" }
+        "RepairOnly"  { return "Repair Only" }
+        "QualityOnly" { return "Quality Only" }
+        "Full"        { return "Full" }
+        default       { return $Mode }
+    }
+}
+
+# ----------------------------[ Media Utilities ]---------------------------- #
+
+function UM-VideoExtensions {
+    return @(
+        "*.mkv", "*.mp4", "*.avi", "*.mov", "*.wmv",
+        "*.flv", "*.mpeg", "*.mpg", "*.ts", "*.webm"
+    )
+}
+
+function UM-LibraryType {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RootPath
+    )
+
+    $rootLower = $RootPath.ToLower()
+
+    # Keyword-based detection
+    $showKeywords  = @("show","shows","tv","tv show","tv shows","series","season")
+    $movieKeywords = @("movie","movies","film","films")
+
+    foreach ($kw in $showKeywords) {
+        if ($rootLower -like "*$kw*") {
+            return "Shows"
+        }
+    }
+
+    foreach ($kw in $movieKeywords) {
+        if ($rootLower -like "*$kw*") {
+            return "Movies"
+        }
+    }
+
+    # Density-based detection
+    $videoExt = UM-VideoExtensions
+
+    $subDirs = Get-ChildItem -Path $RootPath -Directory -ErrorAction SilentlyContinue |
+               Select-Object -First 5
+
+    $videoCount = 0
+    foreach ($dir in $subDirs) {
+        $videoCount += (Get-ChildItem -Path $dir.FullName -File -Include $videoExt -ErrorAction SilentlyContinue).Count
+    }
+
+    if ($videoCount -ge 5) {
+        return "Shows"
+    }
+
+    # Final fallback
+    return "Movies"
+}
+
+# ------------------------------[   Utilities   ]---------------------------- #
 
 function UM-CleanupPreviousRepairs {
     param(
@@ -61,8 +127,8 @@ function UM-CleanupPreviousRepairs {
     # Get all matching files
     $files = Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue
 
+	# Delete everything EXCEPT the final successful extension
     foreach ($f in $files) {
-        # Delete everything EXCEPT the final successful extension
         if ($f.Extension -ne $KeepExtension) {
             try {
                 Remove-Item $f.FullName -Force
@@ -79,27 +145,26 @@ function UM-GetRepairedOutputPath {
         [Parameter(Mandatory=$true)][object]$Context,
         [Parameter(Mandatory=$true)][string]$SourcePath
     )
-
-    # Determine library type
-    $libraryType = $Context.LibraryType
+	
+    $libraryType = $Context.LibraryType											# Determine library type
 
     $relative = $null
 
     if ($SourcePath -match "(?i)(.*\\Shows\\)(.+)") {
-        # Library root = group 1, relative = group 2
         $relative = $matches[2]
     }
+	
     elseif ($SourcePath -match "(?i)(.*\\Movies\\)(.+)") {
         $relative = $matches[2]
     }
+	
     elseif ($Context.RootPath -and
             $SourcePath.StartsWith($Context.RootPath, [System.StringComparison]::OrdinalIgnoreCase)) {
 
-        # Fallback to original RootPath-based behavior
         $relative = $SourcePath.Substring($Context.RootPath.Length).TrimStart("\","/")
     }
+	
     else {
-        # Last-resort fallback: filename only (original behavior)
         $relative = [System.IO.Path]::GetFileName($SourcePath)
     }
 
@@ -107,8 +172,7 @@ function UM-GetRepairedOutputPath {
     $ext         = [System.IO.Path]::GetExtension($SourcePath)
     $baseName    = [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
 
-    # Build repaired root
-    $targetDirBase = Join-Path $Context.RepairedRoot $libraryType
+    $targetDirBase = Join-Path $Context.RepairedRoot $libraryType				# Build repaired root
 
     # Build full directory
     $targetFullDir = if ($relativeDir) {
@@ -124,13 +188,21 @@ function UM-GetRepairedOutputPath {
 
     # Return all relevant paths
     return [PSCustomObject]@{
-        Directory       = $targetFullDir
-        BaseName        = $baseName
-        SameExtPath     = Join-Path $targetFullDir ($baseName + $ext)
-        Mp4Path         = Join-Path $targetFullDir ($baseName + ".mp4")
-        Relative        = $relative
-        RelativeDir     = $relativeDir
+        Directory   = $targetFullDir
+        BaseName    = $baseName
+        SameExtPath = Join-Path $targetFullDir ($baseName + $ext)
+        Mp4Path     = Join-Path $targetFullDir ($baseName + ".mp4")
+        Relative    = $relative
+        RelativeDir = $relativeDir
     }
 }
 
-Export-ModuleMember -Function UM-LoadJson, UM-SaveJson, UM-CleanupPreviousRepairs, UM-GetRepairedOutputPath
+
+Export-ModuleMember -Function `
+    UM-LoadJson, `
+    UM-SaveJson, `
+    UM-CleanupPreviousRepairs, `
+    UM-GetRepairedOutputPath, `
+    UM-PrettyMode, `
+    UM-VideoExtensions, `
+    UM-LibraryType

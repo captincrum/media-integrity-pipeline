@@ -1,6 +1,4 @@
-# =====================================================================
-# UnifiedMedia.Logging.psm1 — Machine Log Only (NDJSON)
-# =====================================================================
+# ----------------------[ Machine Log Initialization ]----------------------- #
 
 function UM-LogInit {
     if (-not $Global:UnifiedMachineLogPath) {
@@ -19,9 +17,7 @@ function UM-LogInit {
     }
 }
 
-# =====================================================================
-# Machine Log Reader (NDJSON)
-# =====================================================================
+# -----------------------[ Machine Log Reader NDJSON ]----------------------- #
 
 function UM-ReadUnifiedLog {
     if (-not (Test-Path $Global:UnifiedMachineLogPath)) {
@@ -45,9 +41,7 @@ function UM-ReadUnifiedLog {
     return @($objects)
 }
 
-# =====================================================================
-# Append Entry to Machine Log Only
-# =====================================================================
+# ----------------------[ Append Entry to Machine Log ]---------------------- #
 
 function UM-AppendLogEntry {
     param([hashtable]$Entry)
@@ -60,9 +54,7 @@ function UM-AppendLogEntry {
     Add-Content -Path $Global:UnifiedMachineLogPath -Value ($machineJson + "`n")
 }
 
-# =====================================================================
-# LOG EVENT TYPES
-# =====================================================================
+# ----------------------------[ Log Event Types ]---------------------------- #
 
 function UM-LogScan {
     param(

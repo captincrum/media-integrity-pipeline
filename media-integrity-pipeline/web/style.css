@@ -201,10 +201,6 @@ input[type="text"] {
 #clearLogsBtn { width: 80px; }
 
 /* ------------------------[ UI: Button states ]---------------------- */
-.btn.primary.running {
-    background: #21242d !important;
-    border-color: #21242d !important;
-}
 
 .btn.toggle.active:hover { background: #525c7b !important; }
 
@@ -387,7 +383,7 @@ input[type="text"] {
 .resume-scroll {
     position: absolute;
     bottom: 73px;
-    right: 35px;
+	right: 35px;
     width: 40px;
     height: 40px;
     border-radius: 50%;

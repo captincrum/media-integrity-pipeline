@@ -214,132 +214,153 @@ function Invoke-UMRepair {
         return ($attempt.ErrorsAfter.Count -eq 0)
     }
 
-    # MAIN REPAIR LOOP
-    foreach ($item in $queue) {
-        $itemIndex++
-		
+	# MAIN REPAIR LOOP
+	foreach ($item in $queue) {
+
+		#
+		# Update file-level metadata
+		#
+		$itemIndex++
+		$Global:UM_RepairItemIndex  = $itemIndex
+		$Global:UM_RepairTotalItems = $queue.Count
+
+		#
+		# Reset FILE timer (once per file)
+		#
 		$fileStart = Get-Date
 		$Global:UM_RepairFileStart = $fileStart
-		
-        $sourcePath = $item.Path
-        if (-not (Test-Path $sourcePath)) {
-            UM-LogRepairResult `
-                -Path          $sourcePath `
-                -Library       $Context.LibraryType `
-                -RepairStatus  "Missing" `
-                -QualityStatus "Unknown" `
-                -RepairedAt    (Get-Date).ToString("s")
-            continue
-        }
 
-        $paths = UM-GetRepairedOutputPath -Context $Context -SourcePath $sourcePath
+		$sourcePath = $item.Path
+		if (-not (Test-Path $sourcePath)) {
+			UM-LogRepairResult `
+				-Path          $sourcePath `
+				-Library       $Context.LibraryType `
+				-RepairStatus  "Missing" `
+				-QualityStatus "Unknown" `
+				-RepairedAt    (Get-Date).ToString("s")
+			continue
+		}
 
-        $targetFullDir     = $paths.Directory
-        $baseName          = $paths.BaseName
-        $targetPathSameExt = $paths.SameExtPath
+		#
+		# Resolve output paths
+		#
+		$paths = UM-GetRepairedOutputPath -Context $Context -SourcePath $sourcePath
+		$targetFullDir     = $paths.Directory
+		$baseName          = $paths.BaseName
+		$targetPathSameExt = $paths.SameExtPath
 
-        $libraryType = $Context.LibraryType
+		$libraryType = $Context.LibraryType
 
-        # Repair stages
-        $repairStages = @(
-            @{ Name="Remux";                   Video=$null;     Audio=$null; Extra=@();                   ForceExt=$null  },
-            @{ Name="ReencodeVideo_CopyAudio"; Video="libx264"; Audio="copy"; Extra=@();                   ForceExt=$null  },
-            @{ Name="ReencodeVideo_AAC";       Video="libx264"; Audio="aac";  Extra=@();                   ForceExt=$null  },
-            @{ Name="FullReencode";            Video="libx264"; Audio="aac";  Extra=@("-preset","medium"); ForceExt=$null  },
-            @{ Name="LastResortMp4";           Video="libx264"; Audio="aac";  Extra=@("-preset","medium"); ForceExt=".mp4" }
-        )
+		#
+		# Repair stages
+		#
+		$repairStages = @(
+			@{ Name="Remux";                   Video=$null;     Audio=$null; Extra=@();                   ForceExt=$null  },
+			@{ Name="ReencodeVideo_CopyAudio"; Video="libx264"; Audio="copy"; Extra=@();                   ForceExt=$null  },
+			@{ Name="ReencodeVideo_AAC";       Video="libx264"; Audio="aac";  Extra=@();                   ForceExt=$null  },
+			@{ Name="FullReencode";            Video="libx264"; Audio="aac";  Extra=@("-preset","medium"); ForceExt=$null  },
+			@{ Name="LastResortMp4";           Video="libx264"; Audio="aac";  Extra=@("-preset","medium"); ForceExt=".mp4" }
+		)
 
-        $success            = $false
-        $successfulStage    = $null
-        $finalQualityStatus = "Unknown"
+		$friendlyNames = @{
+			"Remux"                   = "Fast Repair"
+			"ReencodeVideo_CopyAudio" = "Standard Repair"
+			"ReencodeVideo_AAC"       = "Enhanced Repair"
+			"FullReencode"            = "Deep Repair"
+			"LastResortMp4"           = "Emergency Conversion"
+		}
 
-        $friendlyNames = @{
-            "Remux"                   = "Fast Repair"
-            "ReencodeVideo_CopyAudio" = "Standard Repair"
-            "ReencodeVideo_AAC"       = "Enhanced Repair"
-            "FullReencode"            = "Deep Repair"
-            "LastResortMp4"           = "Emergency Conversion"
-        }
+		#
+		# Resume context
+		#
+		$log = UM-ReadUnifiedLog
 
-        # --- RESUME CONTEXT ---
-        $log = UM-ReadUnifiedLog
+		$attempts = $log | Where-Object {
+			$_.Type -eq "RepairAttempt" -and $_.Path -eq $sourcePath
+		}
 
-        $attempts = $log | Where-Object {
-            $_.Type -eq "RepairAttempt" -and $_.Path -eq $sourcePath
-        }
+		$qualities = $log | Where-Object {
+			$_.Type -eq "Quality" -and $_.Original -eq $sourcePath
+		}
 
-        $qualities = $log | Where-Object {
-            $_.Type -eq "Quality" -and $_.Original -eq $sourcePath
-        }
+		$previousAttempts = $attempts.Count
+		$attemptCount     = $previousAttempts
+		$Global:UM_RepairAttemptCount = $attemptCount
 
-        $previousAttempts = $attempts.Count
-        $attemptCount     = $previousAttempts
+		$lastAttempt = $attempts |
+			Sort-Object Timestamp -Descending |
+			Select-Object -First 1
 
-        $lastAttempt = $attempts |
-            Sort-Object Timestamp -Descending |
-            Select-Object -First 1
+		$lastQualityAfterAttempt = $null
+		if ($lastAttempt) {
+			$lastQualityAfterAttempt = $qualities |
+				Where-Object { $_.Timestamp -gt $lastAttempt.Timestamp } |
+				Sort-Object Timestamp |
+				Select-Object -First 1
+		}
 
-        $lastQualityAfterAttempt = $null
-        if ($lastAttempt) {
-            $lastQualityAfterAttempt = $qualities |
-                Where-Object { $_.Timestamp -gt $lastAttempt.Timestamp } |
-                Sort-Object Timestamp |
-                Select-Object -First 1
-        }
+		$resumeStageName = $null
+		$resumeCRF       = $null
+		$startStageIndex = 0
+		$interrupted     = $false
 
-        $resumeStageName = $null
-        $resumeCRF       = $null
-        $startStageIndex = 0
-        $interrupted     = $false
+		if ($lastAttempt) {
 
-        if ($lastAttempt) {
+			$resumeStageName = ($friendlyNames.GetEnumerator() |
+				Where-Object { $_.Value -eq $lastAttempt.StageFriendly } |
+				Select-Object -First 1).Key
 
-            $resumeStageName = ($friendlyNames.GetEnumerator() |
-                Where-Object { $_.Value -eq $lastAttempt.StageFriendly } |
-                Select-Object -First 1).Key
+			if ($resumeStageName) {
+				for ($i = 0; $i -lt $repairStages.Count; $i++) {
+					if ($repairStages[$i].Name -eq $resumeStageName) {
+						$startStageIndex = $i
+						break
+					}
+				}
+			}
 
-            if ($resumeStageName) {
-                for ($i = 0; $i -lt $repairStages.Count; $i++) {
-                    if ($repairStages[$i].Name -eq $resumeStageName) {
-                        $startStageIndex = $i
-                        break
-                    }
-                }
-            }
+			$hasQuality     = [bool]$lastQualityAfterAttempt
+			$hasHardFailure = ($lastAttempt.ErrorsAfter.Count -gt 0) -or ($lastAttempt.SizeRatio -gt 1.5)
 
-            $hasQuality     = [bool]$lastQualityAfterAttempt
-            $hasHardFailure = ($lastAttempt.ErrorsAfter.Count -gt 0) -or ($lastAttempt.SizeRatio -gt 1.5)
+			if (-not $hasQuality -and -not $hasHardFailure) {
+				$interrupted = $true
+				$resumeCRF   = [int]$lastAttempt.CRF
+			}
+			else {
+				if ($startStageIndex -lt ($repairStages.Count - 1)) {
+					$startStageIndex++
+				}
+			}
+		}
 
-            if (-not $hasQuality -and -not $hasHardFailure) {
-                $interrupted = $true
-                $resumeCRF   = [int]$lastAttempt.CRF
-            }
-            else {
-                if ($startStageIndex -lt ($repairStages.Count - 1)) {
-                    $startStageIndex++
-                }
-            }
-        }
+		#
+		# MAIN STAGE LOOP
+		#
+		$success            = $false
+		$successfulStage    = $null
+		$finalQualityStatus = "Unknown"
 
-        # --- MAIN STAGE LOOP ---
-        for ($stageIndex = $startStageIndex; $stageIndex -lt $repairStages.Count; $stageIndex++) {
-            if ($success) { break }
+		for ($stageIndex = $startStageIndex; $stageIndex -lt $repairStages.Count; $stageIndex++) {
 
-            $stage = $repairStages[$stageIndex]
+			if ($success) { break }
 
-            # Resume-aware CRF
-            $currentCRF = if ($interrupted -and $stage.Name -eq $resumeStageName) {
-                $resumeCRF
-            } else {
-                18
-            }
+			$stage = $repairStages[$stageIndex]
 
-            $stageDone = $false
+			#
+			# Resume-aware CRF
+			#
+			$currentCRF = if ($interrupted -and $stage.Name -eq $resumeStageName) {
+				$resumeCRF
+			} else {
+				18
+			}
+
+			$stageDone = $false
 
 			while (-not $stageDone) {
 
 				#
-				# Start attempt timer
+				# Reset ATTEMPT timer
 				#
 				$attemptStart = Get-Date
 				$Global:UM_RepairAttemptStart = $attemptStart
@@ -354,28 +375,17 @@ function Invoke-UMRepair {
 				}
 
 				#
-				# Compute timers BEFORE attempt
+				# Update metadata globals
 				#
-				$attemptTS = ((Get-Date) - $attemptStart).ToString("hh\:mm\:ss")
-				$fileTS    = ((Get-Date) - $fileStart).ToString("hh\:mm\:ss")
-				$sessionTS = ((Get-Date) - $sessionStart).ToString("hh\:mm\:ss")
+				$Global:UM_RepairStageFriendly = $friendlyNames[$stage.Name]
+				$Global:UM_RepairCRF           = $currentCRF
+				$Global:UM_RepairSourcePath    = $sourcePath
+				$Global:UM_RepairAttemptCount  = $attemptCount
 
 				#
-				# Emit progress BEFORE attempt
+				# Emit BEFORE attempt
 				#
-				Write-Output ([pscustomobject]@{
-					Type          = "RepairProgress"
-					ItemIndex     = $itemIndex
-					TotalItems    = $totalItems
-					StageFriendly = $friendlyNames[$stage.Name]
-					CRF           = $currentCRF
-					SourcePath    = $sourcePath
-					AttemptCount  = $attemptCount
-
-					AttemptTime   = $attemptTS
-					FileTime      = $fileTS
-					Elapsed       = $sessionTS
-				})
+				UM-PhaseThreeConsole
 
 				#
 				# Run the stage
@@ -390,30 +400,12 @@ function Invoke-UMRepair {
 					-ExtraArgs   $stage.Extra
 
 				$attemptCount++
+				$Global:UM_RepairAttemptCount = $attemptCount
 
 				#
-				# Compute timers AFTER attempt
+				# Emit AFTER attempt
 				#
-				$attemptTS = ((Get-Date) - $attemptStart).ToString("hh\:mm\:ss")
-				$fileTS    = ((Get-Date) - $fileStart).ToString("hh\:mm\:ss")
-				$sessionTS = ((Get-Date) - $sessionStart).ToString("hh\:mm\:ss")
-
-				#
-				# Emit progress AFTER attempt
-				#
-				Write-Output ([pscustomobject]@{
-					Type          = "RepairProgress"
-					ItemIndex     = $itemIndex
-					TotalItems    = $totalItems
-					StageFriendly = $friendlyNames[$stage.Name]
-					CRF           = $currentCRF
-					SourcePath    = $sourcePath
-					AttemptCount  = $attemptCount
-
-					AttemptTime   = $attemptTS
-					FileTime      = $fileTS
-					Elapsed       = $sessionTS
-				})
+				UM-PhaseThreeConsole
 
 				if (-not $stageSuccess) {
 					$stageDone = $true
@@ -432,28 +424,9 @@ function Invoke-UMRepair {
 				$finalQualityStatus = $qualityResult.QualityStatus
 
 				#
-				# Compute timers AFTER quality check
+				# Emit AFTER quality check
 				#
-				$attemptTS = ((Get-Date) - $attemptStart).ToString("hh\:mm\:ss")
-				$fileTS    = ((Get-Date) - $fileStart).ToString("hh\:mm\:ss")
-				$sessionTS = ((Get-Date) - $sessionStart).ToString("hh\:mm\:ss")
-
-				#
-				# Emit progress AFTER quality check
-				#
-				Write-Output ([pscustomobject]@{
-					Type          = "RepairProgress"
-					ItemIndex     = $itemIndex
-					TotalItems    = $totalItems
-					StageFriendly = $friendlyNames[$stage.Name]
-					CRF           = $currentCRF
-					SourcePath    = $sourcePath
-					AttemptCount  = $attemptCount
-
-					AttemptTime   = $attemptTS
-					FileTime      = $fileTS
-					Elapsed       = $sessionTS
-				})
+				UM-PhaseThreeConsole
 
 				#
 				# Stage success logic
@@ -480,36 +453,37 @@ function Invoke-UMRepair {
 					$stageDone = $true
 				}
 			}
-
 		}
 
-        # Final result logging
-        if ($success) {
+		#
+		# Final result logging
+		#
+		if ($success) {
 
-            if ($successfulStage -eq "LastResortMp4") {
-                UM-CleanupPreviousRepairs `
-                    -Directory     $targetFullDir `
-                    -BaseName      $baseName `
-                    -KeepExtension ".mp4"
-            }
+			if ($successfulStage -eq "LastResortMp4") {
+				UM-CleanupPreviousRepairs `
+					-Directory     $targetFullDir `
+					-BaseName      $baseName `
+					-KeepExtension ".mp4"
+			}
 
-            UM-LogRepairResult `
-                -Path          $sourcePath `
-                -Library       $libraryType `
-                -RepairStatus  "Repaired" `
-                -QualityStatus $finalQualityStatus `
-                -RepairedAt    (Get-Date).ToString("s")
+			UM-LogRepairResult `
+				-Path          $sourcePath `
+				-Library       $libraryType `
+				-RepairStatus  "Repaired" `
+				-QualityStatus $finalQualityStatus `
+				-RepairedAt    (Get-Date).ToString("s")
 
-        } else {
+		} else {
 
-            UM-LogRepairResult `
-                -Path          $sourcePath `
-                -Library       $libraryType `
-                -RepairStatus  "Failed" `
-                -QualityStatus $finalQualityStatus `
-                -RepairedAt    (Get-Date).ToString("s")
-        }
-    }
+			UM-LogRepairResult `
+				-Path          $sourcePath `
+				-Library       $libraryType `
+				-RepairStatus  "Failed" `
+				-QualityStatus $finalQualityStatus `
+				-RepairedAt    (Get-Date).ToString("s")
+		}
+	}
 
     return "Phase 3 complete. All repair attempts have been logged."
 }

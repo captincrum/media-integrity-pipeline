@@ -17,7 +17,7 @@ function Initialize-UMConfig {
         [string]$RepairedRootOverride
     )
 
-    # Base folder (Main.ps1 or UM-GUI.ps1 directory)
+    # Base folder (UM-GUI.ps1 directory)
     $base = Split-Path $PSScriptRoot -Parent
 
     # Logs folder
@@ -34,70 +34,19 @@ function Initialize-UMConfig {
 		$repairedRoot = Join-Path $RepairedRootOverride "Repaired"
 	}
 
-
     # Ensure repaired folder exists
     if (!(Test-Path $repairedRoot)) {
         New-Item -ItemType Directory -Path $repairedRoot -Force | Out-Null
     }
 
-	# --------------------------------------------
-	# SMART LIBRARY TYPE DETECTION
-	# --------------------------------------------
-
-	# Normalize for matching
-	$rootLower = $RootPath.ToLower()
-
-	# 1) Keyword-based detection
-	$showKeywords  = @("show","shows","tv","tv show","tv shows","series","season")
-	$movieKeywords = @("movie","movies","film","films")
-
-	$libraryType = $null
-
-	foreach ($kw in $showKeywords) {
-		if ($rootLower -like "*$kw*") {
-			$libraryType = "Shows"
-			break
-		}
-	}
-
-	if (-not $libraryType) {
-		foreach ($kw in $movieKeywords) {
-			if ($rootLower -like "*$kw*") {
-				$libraryType = "Movies"
-				break
-			}
-		}
-	}
-
-	# 2) Density-based detection (5+ video files in first 5 folders)
-	if (-not $libraryType) {
-		$videoExt = @("*.mkv","*.mp4","*.avi","*.mov","*.wmv","*.flv","*.mpeg","*.ts","*.webm")
-
-		$subDirs = Get-ChildItem -Path $RootPath -Directory -ErrorAction SilentlyContinue | Select-Object -First 5
-
-		$videoCount = 0
-		foreach ($dir in $subDirs) {
-			$videoCount += (Get-ChildItem -Path $dir.FullName -File -Include $videoExt -ErrorAction SilentlyContinue).Count
-		}
-
-		if ($videoCount -ge 5) {
-			$libraryType = "Shows"
-		}
-	}
-
-	# 3) Final fallback
-	if (-not $libraryType) {
-		$libraryType = "Movies"
-	}
-
+	$libraryType = UM-LibraryType -RootPath $RootPath
 
     # Unified log paths
     $Global:UnifiedMachineLogPath = Join-Path $logsRoot "UnifiedLog.json"
-    $Global:UnifiedHumanLogPath   = Join-Path $logsRoot "HumanLog.json"
 
-    foreach ($path in @($Global:UnifiedMachineLogPath, $Global:UnifiedHumanLogPath)) {
+    foreach ($path in @($Global:UnifiedMachineLogPath)) {
         if (!(Test-Path $path)) {
-            "[]" | Set-Content -Path $path -Encoding UTF8
+            "" | Set-Content -Path $path -Encoding UTF8 			# Originally "[]"
         }
     }
 
@@ -108,7 +57,6 @@ function Initialize-UMConfig {
     $ctx.LibraryType           = $libraryType
     $ctx.LogsRoot              = $logsRoot
     $ctx.RepairedRoot          = $repairedRoot
-    $ctx.UnifiedHumanLogPath   = $Global:UnifiedHumanLogPath
     $ctx.UnifiedMachineLogPath = $Global:UnifiedMachineLogPath
 
     return $ctx

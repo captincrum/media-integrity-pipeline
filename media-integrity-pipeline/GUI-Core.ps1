@@ -1,5 +1,5 @@
 # =====================================================================
-# UM-GUI-Core.ps1 — Unified Media Integrity Pipeline (core orchestration)
+# UM-GUI-Core.ps1 — Unified Media Integrity Pipeline
 # =====================================================================
 
 param($ProjectRoot)
@@ -58,7 +58,7 @@ function UM-RenderHeartbeat {
 
         "Phase2" {
             $Global:UM_ElapsedSeconds++
-            UM-OutputScanProgressLive
+            UM-PhaseTwoLog
         }
 		
 		"Phase3" {
@@ -178,7 +178,7 @@ function Start-UMPipeline-Core {
         # Phase 1 output
 		Start-Sleep -Milliseconds 200
 
-		UM-OutputPhaseOne -Context $ctx
+		UM-PhaseOneConsole -Context $ctx
 
 
 		if ($cfg.Mode -in @("Full","ScanOnly")) {

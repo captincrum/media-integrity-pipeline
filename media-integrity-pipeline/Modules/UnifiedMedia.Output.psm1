@@ -1,6 +1,5 @@
-# ---------------------------------------------------------------------
-# Core Output Router
-# ---------------------------------------------------------------------
+# -----------------------[    Core Output Router   ]------------------------- #
+
 function UM-Output {
     param([string]$Message)
 
@@ -12,147 +11,58 @@ function UM-Output {
     }
 }
 
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
-function UM-PrettyMode {
-    param([string]$Mode)
+# -----------------------[ Console Output: Phase 1 ]------------------------- #
 
-    switch ($Mode) {
-        "ScanOnly"   { return "Scan Only" }
-        "RepairOnly" { return "Repair Only" }
-        "QualityOnly"{ return "Quality Only" }
-        "Full"       { return "Full" }
-        default      { return $Mode }
-    }
-}
-
-# ---------------------------------------------------------------------
-# Read Log (Phase 1)
-# ---------------------------------------------------------------------
-function UM-OutputPhaseOne {
+function UM-PhaseOneConsole {
     param($Context)
 
-    $logExists = Test-Path $Context.UnifiedMachineLogPath
-
-    if ($logExists) {
-        $session = "Preparing session data"
-    } else {
-        $session = "Preparing session data"
-    }
-
-    $block  = ""
-    $block += "Phase 1       : $session`n"
-    $block += "Mode          : $(UM-PrettyMode $Context.Mode)`n"
-    $block += "Library Type  : $($Context.LibraryType)`n"
-    $block += "Root Path     : $($Context.RootPath)`n"
+    $block = @"
+Phase 1       : Preparing session data
+Mode          : $(UM-PrettyMode $Context.Mode)
+Library Type  : $($Context.LibraryType)
+Root Path     : $($Context.RootPath)
+"@
 
     UM-Output $block
-	Start-Sleep -Milliseconds 800
+    Start-Sleep -Milliseconds 500
 }
 
-# ---------------------------------------------------------------------
-# SCAN OUTPUT (Phase 2)
-# ---------------------------------------------------------------------
-function UM-OutputScanProgressLive {
+# -----------------------[ Console Output: Phase 2 ]------------------------- #
 
-    if (-not $Global:UM_TotalFiles -or $Global:UM_TotalFiles -eq 0) {
-        return
-    }
+function UM-PhaseTwoConsole {
 
-    $file      = $Global:UM_CurrentScanFile
-    $elapsedTS = [TimeSpan]::FromSeconds($Global:UM_ElapsedSeconds).ToString("hh\:mm\:ss")
-    $scanned   = $Global:UM_ScannedFiles
-    $total     = $Global:UM_TotalFiles
+    $elapsedTS = ((Get-Date) - $Global:UM_ScanStart).ToString("hh\:mm\:ss")
 
     Write-Output ([pscustomobject]@{
-        Type    = "ScanProgress"
-        Mode    = (UM-PrettyMode $Global:UM_Mode)
-        File    = $file
-        Elapsed = $elapsedTS
-        Scanned = $scanned
-        Total   = $total
+        Type       = "ScanProgress"
+        Mode       = (UM-PrettyMode $Global:UM_Mode)
+        File       = $Global:UM_ScanFile
+        Elapsed    = $elapsedTS
+        Scanned    = $Global:UM_ScannedCount
+        Total      = $Global:UM_ScanTotal
     })
 }
 
-# ---------------------------------------------------------------------
-# REPAIR OUTPUT (Phase 3)
-# ---------------------------------------------------------------------
-function UM-OutputRepairHeader {
-    param(
-        [Parameter(Mandatory=$true)][string]$SourcePath,
-        [Parameter(Mandatory=$true)][int]$AttemptCount
-    )
+# -----------------------[ Console Output: Phase 3 ]------------------------- #
 
-    UM-Output "Phase 3          : Repairing & Logging"
-	UM-Output ("Mode             : {0}" -f (UM-PrettyMode $Global:UM_Mode))
-    UM-Output "Repairing        : $SourcePath"
-}
+function UM-PhaseThreeConsole {
 
-function UM-OutputRepairProgress {
-    param(
-        [Parameter(Mandatory=$true)][int]$ItemIndex,
-        [Parameter(Mandatory=$true)][int]$TotalItems,
-        [Parameter(Mandatory=$true)][string]$StageFriendly,
-        [Parameter(Mandatory=$true)][int]$CRF,
-        [Parameter(Mandatory=$true)][string]$SourcePath,
-        [Parameter(Mandatory=$true)][int]$AttemptCount
-    )
-
-    $attemptTS = [TimeSpan]::FromSeconds($Global:UM_AttemptSeconds)
-    $fileTS    = [TimeSpan]::FromSeconds($Global:UM_FileSeconds)
-    $sessionTS = [TimeSpan]::FromSeconds($Global:UM_ElapsedSeconds)
-
-    UM-OutputRepairHeader `
-        -SourcePath   $SourcePath `
-        -AttemptCount $AttemptCount
-
-    UM-Output "Repair Attempt   : $AttemptCount"
-    UM-Output ("Attempt Time     : {0}" -f $attemptTS.ToString("hh\:mm\:ss"))
-    UM-Output "----------------------------------------"
-    UM-Output "Repairing File   : $ItemIndex / $TotalItems"
-    UM-Output ("File Time        : {0}" -f $fileTS.ToString("hh\:mm\:ss"))
-    UM-Output "----------------------------------------"
-
-    $log = UM-ReadUnifiedLog
-    $latestAttempt = $log |
-        Where-Object { $_.Type -eq "RepairAttempt" -and $_.Path -eq $SourcePath } |
-        Sort-Object Timestamp -Descending |
-        Select-Object -First 1
-
-	if ($latestAttempt -and $latestAttempt.CRF -gt 0) {
-		$displayStage = $latestAttempt.StageFriendly
-		$displayCRF   = $latestAttempt.CRF
-	} else {
-		# Fallback to live values when log is missing/zero
-		$displayStage = $StageFriendly
-		$displayCRF   = $CRF
-	}
-
-
-    UM-Output "Repair Type      : $displayStage (CRF $displayCRF)"
-    UM-Output ("Elapsed Time     : {0}" -f $sessionTS.ToString("hh\:mm\:ss"))
-    UM-Output "----------------------------------------"
-}
-
-function UM-OutputRepairProgressLive {
-
-	$attemptTS = [TimeSpan]::FromSeconds($Global:UM_AttemptSeconds).ToString("hh\:mm\:ss")
-	$fileTS    = [TimeSpan]::FromSeconds($Global:UM_FileSeconds).ToString("hh\:mm\:ss")
-	$sessionTS = [TimeSpan]::FromSeconds($Global:UM_ElapsedSeconds).ToString("hh\:mm\:ss")
+    $attemptTS = ((Get-Date) - $Global:UM_RepairAttemptStart).ToString("hh\:mm\:ss")
+    $fileTS    = ((Get-Date) - $Global:UM_RepairFileStart).ToString("hh\:mm\:ss")
+    $sessionTS = ((Get-Date) - $Global:UM_RepairSessionStart).ToString("hh\:mm\:ss")
 
     Write-Output ([pscustomobject]@{
-        Type         = "RepairProgress"
-        Mode         = (UM-PrettyMode $Global:UM_Mode)
-        SourcePath   = $Global:UM_RepairSourcePath
-        AttemptCount = $Global:UM_RepairAttemptCount
-        AttemptTime  = $attemptTS
-        FileTime     = $fileTS
-        Elapsed      = $sessionTS
-        ItemIndex    = $Global:UM_RepairItemIndex
-        TotalItems   = $Global:UM_RepairTotalItems
-        StageFriendly= $Global:UM_RepairStageFriendly
-        CRF          = $Global:UM_RepairCRF
+        Type          = "RepairProgress"
+        ItemIndex     = $Global:UM_RepairItemIndex
+        TotalItems    = $Global:UM_RepairTotalItems
+        StageFriendly = $Global:UM_RepairStageFriendly
+        CRF           = $Global:UM_RepairCRF
+        SourcePath    = $Global:UM_RepairSourcePath
+        AttemptCount  = $Global:UM_RepairAttemptCount
+
+        AttemptTime   = $attemptTS
+        FileTime      = $fileTS
+        Elapsed       = $sessionTS
     })
 }
 
