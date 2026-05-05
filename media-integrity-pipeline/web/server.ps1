@@ -21,6 +21,7 @@ $projectRoot  = Split-Path $root -Parent
 $modulesPath  = Join-Path $projectRoot "Modules"
 
 . (Join-Path $projectRoot "GUI-Core.ps1") $projectRoot							# Load core orchestration (defines Start-UMPipeline-Core and $Global:UM_CurrentJob)
+. (Join-Path $modulesPath "UM-Errors.ps1")
 
 # -------------------------[ HTTP Listener Setup ]-------------------------- #
 
@@ -170,22 +171,43 @@ while ($true) {
         "/index.html" { Send-File $response "$root\index.html" "text/html" }
         "/style.css"  { Send-File $response "$root\style.css" "text/css" }
         "/app.js"     { Send-File $response "$root\app.js" "application/javascript" }
+		"/icon.ico"   { Send-File $response "$root\icon.ico" "image/x-icon" }
 
         # ------------------------[ API: Buttons ]--------------------------- #
 
-        "/start" {
-            $settings = @{
-                RootPath        = $request.QueryString["root"]
-                RepairedPath    = $request.QueryString["repaired"]
-                Mode            = $request.QueryString["mode"]
-                ScanAllEpisodes = ($request.QueryString["scanAll"] -eq "true")
-            }
+		"/start" {
+			$settings = @{
+				RootPath        = $request.QueryString["root"]
+				RepairedPath    = $request.QueryString["repaired"]
+				Mode            = $request.QueryString["mode"]
+				ScanAllEpisodes = ($request.QueryString["scanAll"] -eq "true")
+			}
 
-            Start-Pipeline $settings
-            $Global:UM_Job = $Global:UM_CurrentJob
+			# ------------------[ VALIDATION: Library Root ]------------------ #
+			if (-not (Test-Path $settings.RootPath)) {
+				$Global:UM_Status       = "error"
+				$Global:UM_LatestStatus = UM-ThrowError -Code "LibraryRootNotFound"
 
-            Send-Json $response @{ ok = $true }
-        }
+				Send-Json $response @{ ok = $false }
+				continue
+			}
+
+			# ------------------[ VALIDATION: Repaired Output ]------------------ #
+			if (-not (Test-Path $settings.RepairedPath)) {
+				$Global:UM_Status       = "error"
+				$Global:UM_LatestStatus = UM-ThrowError -Code "RepairedPathNotFound"
+
+				Send-Json $response @{ ok = $false }
+				continue
+			}
+
+			# ------------------[ START PIPELINE ]------------------ #
+			Start-Pipeline $settings
+			$Global:UM_Job = $Global:UM_CurrentJob
+
+			Send-Json $response @{ ok = $true }
+		}
+
         
 		"/cancel" {
             Stop-Pipeline

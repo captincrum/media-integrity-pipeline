@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Unified Media Integrity Pipeline</title>
+	<link rel="icon" type="image/x-icon" href="icon.ico">
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -88,20 +89,21 @@
         <div id="splitter" class="splitter"></div>
 
 		<!-- RIGHT LOG PANEL (Live Log) -->
-		<aside id="logPane" class="log-pane">
-			<div class="card group log-group">
-				<h2 class="group-title">Live Log</h2>
+		<div id="logPaneWrapper" class="log-pane-wrapper">
+			<aside id="logPane" class="log-pane">
+				<div class="card group log-group">
+					<h2 class="group-title">Live Log</h2>
 
-				<pre id="logViewer" class="log-viewer"></pre>
+					<pre id="logViewer" class="log-viewer"></pre>
 
-				<!-- Floating button inside the card, not in the footer row -->
-				<button id="resumeScrollBtn" class="resume-scroll hidden">⮟</button>
+					<button id="resumeScrollBtn" class="resume-scroll hidden">⮟</button>
 
-				<div class="log-footer">
-					<button id="clearLogsBtn" class="btn danger small">Clear Logs</button>
+					<div class="log-footer">
+						<button id="clearLogsBtn" class="btn danger small">Clear Logs</button>
+					</div>
 				</div>
-			</div>
-		</aside>
+			</aside>
+		</div>
 
 
     </div>

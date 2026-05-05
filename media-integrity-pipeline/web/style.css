@@ -64,10 +64,10 @@ body {
 
 /* ------------------------[ Layout: Left pane ]---------------------- */
 .left-pane {
-    width: 25%;
-    min-width: 450px;
+    min-width: 425px;
+    max-width: 425px;
     height: 100%;
-    padding: 20px;
+    padding: 18px;
     border-right: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
@@ -160,6 +160,8 @@ input[type="text"] {
     font-size: 14px;
     color: var(--accent);
     overflow-y: auto;
+	white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 /* ------------------------[ UI: Button layout ]---------------------- */
@@ -238,31 +240,46 @@ input[type="text"] {
 
 /* ------------------------[ Layout: Splitter ]---------------------- */
 .splitter {
-    width: 8px;
+    min-width: 8px;
     cursor: col-resize;
     background: transparent;
 }
 
-.splitter:hover { background: rgba(255,255,255,0.08); }
+.splitter:hover { 
+	background: rgba(255,255,255,0.08); 
+}
 
 /* ------------------------[ Layout: Log pane ]---------------------- */
+
+.log-pane-wrapper {
+    flex: 1;
+	padding: 16px;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+}
+
 .log-pane {
     width: 0;
-    max-width: 100%;
-    transition: width 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+	min-width: 0;
+    transition: width 1.0s cubic-bezier(0, 0, 0.58, 1);
     overflow: hidden;
     display: flex;
-    padding: 16px 0;
 }
 
 .log-pane.open {
-    width: 25%;
-    padding-right: 16px;
+    --open-width: 33%;
+    width: var(--open-width);
+	padding-right: 25px;
+}
+
+.log-pane.dragging {
+    transition: none !important;
 }
 
 /* ------------------------[ UI: Live log card ]---------------------- */
 .log-group {
-    width: 100%;
+    width: 97%;
     height: 100%;
     display: flex;
     flex-direction: column;

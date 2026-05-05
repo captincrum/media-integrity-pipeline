@@ -408,8 +408,10 @@ async function loadConfig() {
 
 function openLogPane() {
     logOpen = true;
+    logPane.style.width = "0";
+    void logPane.offsetWidth;
     logPane.classList.add("open");
-    logPane.style.width = "520px";
+    logPane.style.width = "";
 }
 
 function closeLogPane() {
@@ -498,6 +500,8 @@ splitter.addEventListener("mousedown", e => {
     startX     = e.clientX;
     startWidth = logPane.getBoundingClientRect().width;
 
+    logPane.classList.add("dragging");
+
     document.body.style.cursor = "col-resize";
     document.body.classList.add("no-select");
 });
@@ -505,22 +509,82 @@ splitter.addEventListener("mousedown", e => {
 window.addEventListener("mousemove", e => {
     if (!isResizing) return;
 
-    const dx       = e.clientX - startX;
-    let newWidth   = startWidth + dx;
-    const shell    = document.querySelector(".shell");
-    const shellWidth = shell.getBoundingClientRect().width;
-    const maxWidth = shellWidth * 1.0;
+    const dx = e.clientX - startX;
+    let newWidth = startWidth + dx;
 
-    newWidth = Math.max(260, Math.min(newWidth, maxWidth));
+    const shell = document.querySelector(".shell");
+    const shellRect = shell.getBoundingClientRect();
+
+    const leftPane = document.querySelector(".left-pane");
+    const leftRect = leftPane.getBoundingClientRect();
+
+    const splitterWidth = splitter.getBoundingClientRect().width;
+
+    // Dynamically read wrapper padding from CSS
+    const wrapper = document.getElementById("logPaneWrapper");
+    const style = getComputedStyle(wrapper);
+    const padLeft  = parseFloat(style.paddingLeft);
+    const padRight = parseFloat(style.paddingRight);
+    const totalPadding = padLeft + padRight;
+
+    // True max width
+    const available =
+        shellRect.width -
+        leftRect.width -
+        splitterWidth;
+
+    const minWidth = 260;
+    const maxWidth = available;
+
+    newWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+
     logPane.style.width = newWidth + "px";
 });
 
 window.addEventListener("mouseup", () => {
     if (!isResizing) return;
     isResizing = false;
+
+    logPane.classList.remove("dragging");
+
     document.body.style.cursor = "default";
     document.body.classList.remove("no-select");
 });
+
+/* ------------------------[      Splitter double‑click toggle  ]------------------------ */
+
+splitter.addEventListener("dblclick", () => {
+    if (!logOpen) return;
+    const openWidthCSS = getComputedStyle(logPane).getPropertyValue("--open-width").trim();
+    const wrapper = document.getElementById("logPaneWrapper");
+    const wrapperWidth = wrapper.getBoundingClientRect().width;
+    const minWidth = (parseFloat(openWidthCSS) / 100) * wrapperWidth;
+    const paneWidth = logPane.getBoundingClientRect().width;
+    const shell = document.querySelector(".shell");
+    const shellRect = shell.getBoundingClientRect();
+    const leftPane = document.querySelector(".left-pane");
+    const leftRect = leftPane.getBoundingClientRect();
+    const splitterWidth = splitter.getBoundingClientRect().width;
+
+    const maxWidth =
+        shellRect.width -
+        leftRect.width -
+        splitterWidth;
+
+    if (paneWidth > maxWidth) {
+        logPane.style.width = minWidth + "px";
+        return;
+    }
+
+    if (paneWidth >= maxWidth * 0.98) {
+        logPane.style.width = minWidth + "px";
+        return;
+    }
+
+    logPane.style.width = maxWidth + "px";
+});
+
+
 
 /* ------------------------[      Event wiring: main buttons    ]------------------------ */
 
