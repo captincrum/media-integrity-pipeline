@@ -322,9 +322,28 @@ function Invoke-UMScan {
                     try { $queue = $queueRaw | ConvertFrom-Json } catch { }
                 }
 
-                if (-not $queue -or $queue.Count -eq 0) {
+				if (-not $queue -or $queue.Count -eq 0) {
                     $workerMutex.ReleaseMutex()
-                    break   # queue empty, worker is done
+                    $retries = 0
+                    $foundWork = $false
+                    while ($retries -lt 6) {
+                        Start-Sleep -Milliseconds 500
+                        $retries++
+                        $workerMutex.WaitOne() | Out-Null
+                        $recheckRaw = Get-Content $queuePath -Raw -ErrorAction SilentlyContinue
+                        $recheckQueue = @()
+                        if ($recheckRaw -and $recheckRaw.Trim() -ne "" -and $recheckRaw.Trim() -ne "null") {
+                            try { $recheckQueue = $recheckRaw | ConvertFrom-Json } catch { }
+                        }
+                        if ($recheckQueue -and $recheckQueue.Count -gt 0) {
+                            $workerMutex.ReleaseMutex()
+                            $foundWork = $true
+                            break  # new work appeared, go back to main loop
+                        }
+                        $workerMutex.ReleaseMutex()
+                    }
+                    if (-not $foundWork) { break }  # truly empty after retries
+                    continue  # loop back to grab the new work
                 }
 
                 # Take first item

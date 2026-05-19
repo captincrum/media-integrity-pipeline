@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Unified Media Integrity Pipeline</title>
-	<link rel="icon" type="image/x-icon" href="favicon002.ico">
+	<link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -92,10 +92,13 @@
 		<div id="logPaneWrapper" class="log-pane-wrapper">
 			<aside id="logPane" class="log-pane">
 				<div class="card group log-group">
-
-					<div class="group-title-wrapper">
-						<h2 class="group-title">Live Log</h2>
+					<div class="group-title-wrapper" style="display:flex; align-items:center; justify-content:space-between; width:100%; min-width:0; overflow:hidden;">
+						<h2 class="group-title" style="margin:0; white-space:nowrap; flex-shrink:0;">Live Log</h2>
+					<div id="logFilterRow" class="log-filter-row">
+						<input id="logFilterInput" type="text" placeholder="Search Filter..." />
+						<button id="logFilterClear" class="btn small">✕</button>
 					</div>
+				</div>
 
 					<div id="logViewer" class="log-viewer">
 						<div id="logSpacer" class="log-spacer"></div>

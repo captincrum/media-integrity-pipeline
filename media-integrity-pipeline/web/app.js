@@ -27,6 +27,8 @@ let lastRepairStatus   	= null;
 let lastRepairUpdateAt 	= null;
 let currentPhase       	= "none"; // "none" | "phase1" | "phase2" | "phase3"
 
+let logFilterText = "";
+
 let fullLogLength = 0;
 let windowStart = 0;
 let windowEnd = 200;
@@ -149,10 +151,36 @@ function formatSecondsToHms(totalSeconds) {
 
 /* ------------------------[          Log rendering helpers     ]------------------------ */
 
+let currentEntries = [];
+
 function renderLogFile(entries) {
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
         logContent.textContent = "No logs found";
         return;
+    }
+
+    // Cache for re-renders when filter changes
+    currentEntries = entries;
+
+	// Apply filter across all fields
+    if (logFilterText) {
+        entries = entries.filter(e => {
+            if (!e) return false;
+            return Object.values(e).some(val => {
+                if (val === null || val === undefined) return false;
+                if (Array.isArray(val)) return val.some(v => String(v).toLowerCase().includes(logFilterText));
+                return String(val).toLowerCase().includes(logFilterText);
+            });
+        });
+        if (entries.length === 0) {
+            logContent.textContent = "No entries match filter.";
+            logSpacer.style.height = "0px";
+            logContent.style.top   = "0px";
+            return;
+        }
+        // Reset virtual scroll positioning so entries sit at the top naturally
+        logSpacer.style.height = "0px";
+        logContent.style.top   = "0px";
     }
 
     const keyOrder = [
@@ -283,6 +311,7 @@ function renderRepairConsole() {
     const elapsedTime = formatSecondsToHms(elapsedBase + deltaSec);
 
     let block = "";
+	block += "----------------------------------------\n";
     block += "Phase 3          : Repairing & Logging\n";
     block += `Mode             : ${s.Mode}\n`;
     block += `Repairing        : ${s.SourcePath}\n`;
@@ -332,6 +361,7 @@ function renderStatusBlock(data) {
 			workerLines += `${label} : ${folder}\n`;
 		}
 
+		block += "----------------------------------------\n";
 		block += "Phase 2    : Scanning & Logging\n";
 		block += `Mode       : ${s.Mode}\n`;
 		block += `Elapsed    : ${s.Elapsed}\n`;
@@ -339,6 +369,7 @@ function renderStatusBlock(data) {
 		block += `Completion : ${Math.round((s.Scanned / s.Total) * 100)}%\n`;
 		block += "----------------------------------------\n";
 		block += workerLines;
+		block += "----------------------------------------\n";
 		consoleEl.textContent = block;
 		return;
 	}
@@ -420,7 +451,11 @@ async function clearLogs() {
             const res  = await fetch("/logs/clear");
             const data = await res.json();
 
-            if (data.ok) {
+			if (data.ok) {
+                fullLogLength  = 0;
+                windowStart    = 0;
+                windowEnd      = 200;
+                currentEntries = [];
                 renderLogFile([]);
             } else {
                 alert("Failed to clear logs: " + data.error);
@@ -466,7 +501,6 @@ async function apiLoadLogSlice(start, end) {
 }
 
 function renderVirtualizedSlice(entries, anchorIndex) {
-    // Don't overwrite existing content with empty — wait for next poll
     if (!entries || entries.length === 0) return;
 
     renderLogFile(entries);
@@ -533,6 +567,8 @@ logViewer.addEventListener("scroll", async () => {
         resumeScrollBtn.classList.add("hidden");
         return;
     }
+
+    if (logFilterText) return;
 
     // User scrolled up — lock the poller out
     logAutoScroll = false;
@@ -622,6 +658,42 @@ machineLogBtn.addEventListener("click", async () => {
 	} else {
         closeLogPane();
     }
+});
+
+document.getElementById("logFilterInput").addEventListener("input", async () => {
+    logFilterText = document.getElementById("logFilterInput").value.trim().toLowerCase();
+
+    if (logFilterText) {
+        // Fetch the entire log so the filter isn't limited to the current window slice
+        const meta = await apiLoadLogSlice(0, 1);
+        fullLogLength = meta.total;
+        const data = await apiLoadLogSlice(0, fullLogLength);
+        currentEntries = data.entries;
+        logSpacer.style.height = "0px";
+        logContent.style.top   = "0px";
+        renderLogFile(currentEntries);
+    } else {
+        // Restore normal windowed view at the bottom
+        logAutoScroll = true;
+        scrollLocked  = false;
+        const meta = await apiLoadLogSlice(0, 1);
+        fullLogLength = meta.total;
+        windowEnd   = fullLogLength;
+        windowStart = Math.max(0, fullLogLength - 200);
+        const data  = await apiLoadLogSlice(windowStart, windowEnd);
+        currentEntries = data.entries;
+        renderLogFile(currentEntries);
+        requestAnimationFrame(() => { logViewer.scrollTop = logViewer.scrollHeight; });
+    }
+});
+
+document.getElementById("logFilterClear").addEventListener("click", () => {
+    document.getElementById("logFilterInput").value = "";
+    logFilterText = "";
+    logAutoScroll = true;
+    scrollLocked  = false;
+    renderLogFile(currentEntries);
+    requestAnimationFrame(() => { logViewer.scrollTop = logViewer.scrollHeight; });
 });
 
 /* ------------------------[      Event wiring: splitter drag   ]------------------------ */
@@ -809,6 +881,7 @@ setInterval(async () => {
     if (!logOpen) return;
     if (isScrollFetching) return;
     if (scrollLocked) return; 
+	if (logFilterText) return;
 
     const selection = window.getSelection();
     if (selection && selection.toString().length > 0) return;
@@ -822,10 +895,15 @@ setInterval(async () => {
         windowStart = Math.max(0, fullLogLength - 200);
     }
 
-    const data = await apiLoadLogSlice(windowStart, windowEnd);
-    if (data.total > 0) fullLogLength = data.total;
-
-    renderVirtualizedSlice(data.entries, windowStart);
+	const data = await apiLoadLogSlice(windowStart, windowEnd);
+		if (data.total > 0) {
+			fullLogLength = data.total;
+			renderVirtualizedSlice(data.entries, windowStart);
+		} else if (fullLogLength === 0) {
+			logContent.textContent = "No logs found";
+			logSpacer.style.height = "0px";
+			logContent.style.top   = "0px";
+		}
 
     if (shouldAutoScroll) {
         requestAnimationFrame(() => {

@@ -171,7 +171,7 @@ while ($true) {
         "/index.html" { Send-File $response "$root\index.html" "text/html" }
         "/style.css"  { Send-File $response "$root\style.css" "text/css" }
         "/app.js"     { Send-File $response "$root\app.js" "application/javascript" }
-		"/favicon002.ico"{ Send-File $response "$root\favicon002.ico" "image/x-icon" }
+		"/favicon.ico"{ Send-File $response "$root\favicon.ico" "image/x-icon" }
 
         # ------------------------[ API: Buttons ]--------------------------- #
 

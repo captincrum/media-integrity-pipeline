@@ -1,6 +1,6 @@
 ﻿{
-    "RootPath":  "D:\\Shows\\Goosebumps",
+    "RootPath":  "D:\\Shows",
     "RepairedPath":  "F:\\Temp",
-    "Mode":  "Full",
-    "ScanAllEpisodes":  true
+    "Mode":  "ScanOnly",
+    "ScanAllEpisodes":  false
 }

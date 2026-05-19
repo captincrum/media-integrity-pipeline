@@ -100,7 +100,7 @@ body {
 }
 
 .group-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     margin: 0 0 8px 0;
 }
@@ -327,6 +327,12 @@ input[type="text"] {
     overflow-x: auto;
     overflow-y: auto;
     position: relative;
+    opacity: 0;
+    transition: opacity 1.0s cubic-bezier(0, 0, 0.58, 1);
+}
+
+.log-pane.open .log-viewer {
+    opacity: 1;
 }
 
 .log-spacer {
@@ -353,6 +359,43 @@ input[type="text"] {
     margin-top: 8px;
     display: flex;
     justify-content: flex-end;
+}
+
+/* ------------------------[ UI: Log filter bar ]---------------------- */
+.log-filter-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    transition: opacity 1.0s cubic-bezier(0, 0, 0.58, 1);
+}
+
+.log-pane:not(.open) .log-filter-row {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.log-pane.open .log-filter-row {
+    opacity: 1;
+}
+
+.log-filter-row input[type="text"] {
+    width: 25%;
+    min-width: 120px;
+    flex: none;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+
+#logFilterClear {
+    width: 28px;
+    padding: 5px;
+    border-radius: 50px;
+    flex-shrink: 0;
 }
 
 /* ------------------------[ UI: Mode selector ]---------------------- */
