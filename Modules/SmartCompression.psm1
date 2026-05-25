@@ -1,5 +1,5 @@
 # =====================================================================
-# UnifiedMedia.SmartCompression.psm1
+# SmartCompression.psm1
 # Sample-encode probe: 1 sample (fast) or 3 samples (accurate).
 # Hard filters: skip hevc/av1/vp9, duration < 3min, bitrate < 500kbps.
 # Skip rule: if any sample encode exceeds source bitrate -> skip.
@@ -105,7 +105,7 @@ function Invoke-UMSmartProbe {
         -Workers    $Context.Workers `
         -TempDir    $probeTempDir `
         -ModuleRoot $moduleRoot `
-        -Modules    @("UnifiedMedia.Common.psm1", "UnifiedMedia.Logging.psm1", "UnifiedMedia.SmartCompression.psm1") `
+        -Modules    @("Common.psm1", "Logging.psm1", "SmartCompression.psm1") `
         -WorkScript $probeWorkScript `
         -Extra      $probeExtra `
         -OnResult   $probeOnResult `
@@ -533,7 +533,7 @@ function Invoke-UMCompress {
         -Workers    $Context.Workers `
         -TempDir    $compressTempDir `
         -ModuleRoot $moduleRoot `
-        -Modules    @("UnifiedMedia.Common.psm1", "UnifiedMedia.Logging.psm1", "UnifiedMedia.SmartCompression.psm1") `
+        -Modules    @("Common.psm1", "Logging.psm1", "SmartCompression.psm1") `
         -WorkScript $compressWorkScript `
         -Extra      $compressExtra `
         -OnResult   $compressOnResult `

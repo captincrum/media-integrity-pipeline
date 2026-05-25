@@ -344,7 +344,7 @@ function Invoke-UMScan {
         -Workers    $Context.Workers `
         -TempDir    $Global:UM_ScanTempDir `
         -ModuleRoot $moduleRoot `
-        -Modules    @("UnifiedMedia.Common.psm1", "UnifiedMedia.Logging.psm1", "UnifiedMedia.Scan.psm1") `
+        -Modules    @("Common.psm1", "Logging.psm1", "Scan.psm1") `
         -WorkScript $scanWorkScript `
         -Extra      @{ Library = $Context.LibraryType } `
         -OnResult   $onResult `

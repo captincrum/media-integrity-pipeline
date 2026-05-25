@@ -47,14 +47,14 @@ Write-Host "------------------------"
 $requiredFiles = @(
     "GUI-Core.ps1",
     "config.json",
-    "Modules\UnifiedMedia.Common.psm1",
-    "Modules\UnifiedMedia.Config.psm1",
-    "Modules\UnifiedMedia.Logging.psm1",
-    "Modules\UnifiedMedia.Output.psm1",
-    "Modules\UnifiedMedia.Quality.psm1",
-    "Modules\UnifiedMedia.Repair.psm1",
-    "Modules\UnifiedMedia.Scan.psm1",
-    "Modules\UnifiedMedia.SmartCompression.psm1",
+    "Modules\Common.psm1",
+    "Modules\Config.psm1",
+    "Modules\Logging.psm1",
+    "Modules\Output.psm1",
+    "Modules\Quality.psm1",
+    "Modules\Repair.psm1",
+    "Modules\Scan.psm1",
+    "Modules\SmartCompression.psm1",
     "Modules\UM-Errors.ps1",
     "web\index.html",
     "web\app.js",
@@ -123,9 +123,9 @@ Write-Host "Suite 3: Module Imports" -ForegroundColor Cyan
 Write-Host "------------------------"
 
 $modules = @(
-    "UnifiedMedia.Common.psm1",
-    "UnifiedMedia.Output.psm1",
-    "UnifiedMedia.Logging.psm1"
+    "Common.psm1",
+    "Output.psm1",
+    "Logging.psm1"
 )
 
 foreach ($m in $modules) {
@@ -148,7 +148,7 @@ Write-Host ""
 Write-Host "Suite 4: UM-PrettyMode" -ForegroundColor Cyan
 Write-Host "-----------------------"
 
-Import-Module (Join-Path $moduleRoot "UnifiedMedia.Common.psm1") -Force
+Import-Module (Join-Path $moduleRoot "Common.psm1") -Force
 
 Test-Case "ScanOnly returns 'Scan Only'" {
     (UM-PrettyMode "ScanOnly") -eq "Scan Only"
@@ -252,7 +252,7 @@ Write-Host ""
 Write-Host "Suite 8: Output Module Guards" -ForegroundColor Cyan
 Write-Host "------------------------------"
 
-Import-Module (Join-Path $moduleRoot "UnifiedMedia.Output.psm1") -Force
+Import-Module (Join-Path $moduleRoot "Output.psm1") -Force
 
 $Global:UM_LatestStatus      = $null
 $Global:UM_RepairItemIndex   = $null

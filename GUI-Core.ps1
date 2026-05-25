@@ -14,14 +14,14 @@ $configPath                   = Join-Path $PSScriptRoot "config.json"
 
 $moduleRoot = Join-Path $PSScriptRoot "Modules"
 $modules = @(
-    "UnifiedMedia.Common.psm1",
-    "UnifiedMedia.Logging.psm1",
-    "UnifiedMedia.Config.psm1",
-    "UnifiedMedia.Scan.psm1",
-    "UnifiedMedia.Repair.psm1",
-    "UnifiedMedia.Quality.psm1",
-    "UnifiedMedia.Output.psm1"
-    "UnifiedMedia.SmartCompression.psm1"
+    "Common.psm1",
+    "Logging.psm1",
+    "Config.psm1",
+    "Scan.psm1",
+    "Repair.psm1",
+    "Quality.psm1",
+    "Output.psm1"
+    "SmartCompression.psm1"
 )
 foreach ($m in $modules) {
     Import-Module (Join-Path $moduleRoot $m) -Force
@@ -151,14 +151,14 @@ function Start-UMPipeline-Core {
         param($cfg, $moduleRoot, $settings)
 
         $modules = @(
-            "UnifiedMedia.Common.psm1",
-            "UnifiedMedia.Logging.psm1",
-            "UnifiedMedia.Config.psm1",
-            "UnifiedMedia.Scan.psm1",
-            "UnifiedMedia.Repair.psm1",
-            "UnifiedMedia.Quality.psm1",
-            "UnifiedMedia.Output.psm1",
-			"UnifiedMedia.SmartCompression.psm1"
+            "Common.psm1",
+            "Logging.psm1",
+            "Config.psm1",
+            "Scan.psm1",
+            "Repair.psm1",
+            "Quality.psm1",
+            "Output.psm1",
+			"SmartCompression.psm1"
         )
         foreach ($m in $modules) {
             Import-Module (Join-Path $moduleRoot $m) -Force
