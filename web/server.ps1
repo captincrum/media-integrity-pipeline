@@ -148,7 +148,6 @@ while ($true) {
 					
 					if ($o.Type -eq "CompressProgress") { 
                         $Global:UM_HeartbeatPhase = "Phase3"
-                        [System.IO.File]::AppendAllText("C:\Scripts\media-integrity-pipeline\Logs\debug_compress.txt", "GOT CompressProgress: $($o | ConvertTo-Json -Compress)`n")
                     }
                     $Global:UM_LatestStatus = $o
                 }

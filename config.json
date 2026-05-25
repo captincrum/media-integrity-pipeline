@@ -3,7 +3,7 @@
     "RepairedPath":  "F:\\",
     "Mode":  "SmartCompression",
     "ScanAllEpisodes":  true,
-    "AccurateMode":  false,
+    "AccurateMode":  true,
     "CompressionOutputPath":  "F:\\",
     "CrfValue":  22,
     "Workers":  2,

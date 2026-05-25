@@ -354,7 +354,6 @@ function Invoke-UMWorkerPool {
 		# Flush tmp files -> call OnResult for each new result
         for ($w = 1; $w -le $Workers; $w++) {
             $tmpFile = Join-Path $TempDir "Worker_$w.tmp"
-            [System.IO.File]::AppendAllText("C:\Scripts\media-integrity-pipeline\Logs\debug_compress.txt", "Checking: $tmpFile exists:$(Test-Path $tmpFile)`n")
             if (-not (Test-Path $tmpFile)) { continue }
 
             $lines = Get-Content $tmpFile -ErrorAction SilentlyContinue
