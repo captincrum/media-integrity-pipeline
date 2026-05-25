@@ -16,8 +16,23 @@ jobs:
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-      - name: Run test suite
+      - name: Run PowerShell unit tests
         shell: pwsh
         run: |
-          $result = & ".\Tests\Run-Tests.ps1"
+          & ".\Tests\Run-Tests.ps1"
           exit $LASTEXITCODE
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Start web server
+        shell: pwsh
+        run: |
+          Start-Process powershell -ArgumentList "-File", "$PWD\web\server.ps1" -WindowStyle Hidden
+          Start-Sleep -Seconds 5
+
+      - name: Run Playwright UI tests
+        run: npx playwright test Tests/ui.spec.js
