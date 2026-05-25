@@ -60,7 +60,7 @@
                             <input type="range" id="workerCount" min="1" max="8" value="4" style="flex:1;" />
                             <span id="workerValue" class="toggle-label">4</span>
                         </div>
-                        <p id="workerDesc" class="smart-desc">Recommended</p>
+                        <p id="workerDesc" class="smart-desc">Recommended — balance of speed and CPU resources</p>
                     </div>
                 </div>
 
@@ -71,7 +71,7 @@
 						<label><input type="radio" name="mode" value="Full" checked /> Scan & Repair</label>
 						<label><input type="radio" name="mode" value="ScanOnly" /> Scan</label>
 						<label><input type="radio" name="mode" value="RepairOnly" /> Repair</label>
-						<label><input type="radio" name="mode" value="SmartCompression" /> Compression</label>
+						<label><input type="radio" name="mode" value="SmartCompression" /> Smart Compression</label>
 					</div>
 				</div>
 
@@ -87,7 +87,7 @@
 						<span class="toggle-label">Accurate</span>
 						<button id="reviewBtn" class="btn small disabled-ui" style="margin-left: auto;">Review</button>
 					</div>
-					<p id="smartMethodDesc" class="smart-desc">ffprobe analysis only - instant results across your entire library</p>
+					<p id="smartMethodDesc" class="smart-desc">Quick results across your entire library</p>
 
 					<div class="toggle-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 8px;">
 						<div style="display:flex; align-items:center; gap:10px; width:100%;">
@@ -183,7 +183,7 @@
                         <input type="range" id="compressWorkerCount" min="1" max="8" value="2" style="flex:1;" />
                         <span id="compressWorkerValue" class="toggle-label">2</span>
                     </div>
-                    <p id="compressWorkerDesc" class="smart-desc">2 workers - recommended for compression</p>
+                    <p id="compressWorkerDesc" class="smart-desc">Recommended — balance of speed and CPU resources</p>
                 </div>
                 <div class="compression-summary" id="compressionSummary"></div>
                 <button id="compressionStart" class="btn primary compression-start-btn">Compress</button>

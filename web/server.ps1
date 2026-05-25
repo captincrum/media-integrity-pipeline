@@ -193,7 +193,7 @@ while ($true) {
 			}
 
 			# ------------------[ VALIDATION: Library Root ]------------------ #
-			if (-not (Test-Path $settings.RootPath)) {
+			if (-not $settings.RootPath -or -not (Test-Path $settings.RootPath)) {
 				$Global:UM_Status       = "error"
 				$Global:UM_LatestStatus = UM-ThrowError -Code "LibraryRootNotFound"
 

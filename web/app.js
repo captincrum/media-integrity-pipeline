@@ -318,14 +318,14 @@ if (activeLogMode === "machine") {
 function getWorkerDesc(n) {
     n = parseInt(n) || 4;
     if (n <= 3) return "Less CPU intensive — slower processing";
-    if (n === 4) return "Recommended";
+    if (n === 4) return "Recommended — balance of speed and CPU resources";
     return "More CPU intensive — faster processing";
 }
 
 function getCompressWorkerDesc(n) {
     n = parseInt(n) || 2;
     if (n === 1) return "Less CPU intensive — slower processing";
-    if (n === 2) return "Recommended";
+    if (n === 2) return "Recommended — balance of speed and CPU resources";
     return "More CPU intensive — faster processing";
 }
 
