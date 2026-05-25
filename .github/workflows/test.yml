@@ -1,0 +1,21 @@
+name: FlickFix Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run test suite
+        shell: pwsh
+        run: |
+          $result = & ".\Tests\Run-Tests.ps1"
+          exit $LASTEXITCODE
