@@ -254,13 +254,17 @@ Write-Host "------------------------------"
 
 Import-Module (Join-Path $moduleRoot "Output.psm1") -Force
 
-$Global:UM_LatestStatus      = $null
-$Global:UM_RepairItemIndex   = $null
+$Global:UM_LatestStatus        = $null
+$Global:UM_RepairItemIndex     = $null
+$Global:UM_RepairDoneCount     = 0
+$Global:UM_RepairTotalItems    = 0
+$Global:UM_RepairSessionStart  = $null
+$Global:UM_WorkerFolders       = @()
 $Global:UM_CompressTotalFiles2 = 0
 
-Test-Case "UM-RepairHeartbeatConsole returns nothing when status is null" {
-    $result = UM-RepairHeartbeatConsole
-    $result -eq $null
+Test-Case "UM-RepairWorkerConsole returns valid object when globals are zero" {
+    $result = UM-RepairWorkerConsole
+    $result -ne $null -and $result.Type -eq "RepairProgress" -and $result.ItemIndex -eq 0
 }
 
 Test-Case "UM-PhaseThreeConsole returns nothing when RepairItemIndex is null" {
