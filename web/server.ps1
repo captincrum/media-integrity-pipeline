@@ -1,5 +1,7 @@
 # -------------------------[ Server Initialization ]------------------------- #
 
+Add-Type -Name Win32 -Namespace Console -MemberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);' ; [Console.Win32]::ShowWindow((Get-Process -Id $PID).MainWindowHandle, 0)
+
 if ($MyInvocation.InvocationName -ne '.') {
 
     Start-Sleep -Milliseconds 250 												# Give the server a moment to start

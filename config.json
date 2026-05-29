@@ -1,7 +1,7 @@
 ﻿{
-    "RootPath":  "",
+    "RootPath":  "D:\\Shows",
     "RepairedPath":  "",
-    "Mode":  "Full",
+    "Mode":  "ScanOnly",
     "ScanAllEpisodes":  false,
     "AccurateMode":  false,
     "CompressionOutputPath":  "F:\\",

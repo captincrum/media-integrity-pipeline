@@ -27,3 +27,5 @@ Logs/
 node_modules/
 package-lock.json
 test-results/
+FlickFix.ps1
+*.exe
