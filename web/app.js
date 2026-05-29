@@ -1825,10 +1825,73 @@ setInterval(async () => {
 
 /* ------------------------[          Polling: live logs        ]------------------------ */
 
-let lastKnownTotal = 0;
-
 let logPollTimer = null;
 let logPollBusy = false;
+
+async function pollLiveLog() {
+    if (!logOpen || isScrollFetching || scrollLocked || logFilterText || logPollBusy) {
+        logPollTimer = setTimeout(pollLiveLog, 250);
+        return;
+    }
+
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) {
+        logPollTimer = setTimeout(pollLiveLog, 250);
+        return;
+    }
+
+    const shouldAutoScroll = logAutoScroll;
+
+    logPollBusy = true;
+    const meta = await apiLogTotal();
+    
+    if (!meta.ok || (meta.total === lastKnownTotal && meta.total === fullLogLength)) {
+        logPollBusy = false;
+        // Nothing changed — back off to 500ms
+        logPollTimer = setTimeout(pollLiveLog, 500);
+        return;
+    }
+
+    fullLogLength = meta.total;
+    lastKnownTotal = meta.total;
+
+    if (shouldAutoScroll) {
+        windowEnd   = fullLogLength;
+        windowStart = Math.max(0, fullLogLength - 200);
+    }
+
+    const data = await apiLoadLogSlice(windowStart, windowEnd);
+    if (data.total > 0) {
+        fullLogLength = data.total;
+        if (data.entries.length !== currentEntries.length ||
+            data.entries[data.entries.length - 1]?.Timestamp !== currentEntries[currentEntries.length - 1]?.Timestamp) {
+            currentEntries = data.entries;
+            if (shouldAutoScroll) {
+                logSpacer.style.height = "0px";
+                logContent.style.top = "0px";
+                renderLogFile(currentEntries);
+            } else {
+                renderLogFile(currentEntries);
+            }
+        }
+    } else if (fullLogLength === 0) {
+        logContent.textContent = "No logs found";
+        logSpacer.style.height = "0px";
+        logContent.style.top   = "0px";
+    }
+
+    if (shouldAutoScroll) {
+        requestAnimationFrame(() => {
+            logViewer.scrollTop = logViewer.scrollHeight;
+        });
+    }
+
+    logPollBusy = false;
+    // Data changed — poll again quickly
+    logPollTimer = setTimeout(pollLiveLog, 250);
+}
+
+pollLiveLog();
 
 /* ------------------------[          Polling: live console     ]------------------------ */
 
@@ -1843,5 +1906,3 @@ setInterval(async () => {
         lastKnownTotal = data.logTotal;
     }
 }, 250);
-
-pollLiveLog();

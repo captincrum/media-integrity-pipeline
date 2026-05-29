@@ -1,11 +1,11 @@
 ﻿{
-    "RootPath":  "D:\\Shows",
-    "RepairedPath":  "F:\\",
-    "Mode":  "ScanOnly",
-    "ScanAllEpisodes":  true,
+    "RootPath":  "",
+    "RepairedPath":  "",
+    "Mode":  "Full",
+    "ScanAllEpisodes":  false,
     "AccurateMode":  false,
     "CompressionOutputPath":  "F:\\",
     "CrfValue":  22,
-    "Workers":  4,
+    "Workers":  2,
     "RunMode":  "ScanOnly"
 }

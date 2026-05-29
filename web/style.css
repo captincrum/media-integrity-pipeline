@@ -352,10 +352,10 @@ input[type="text"] {
     cursor: text;
 }
 
-/* .log-content.machine-log {
+ .log-content.machine-log {
     line-height: 1.6;
+	padding-bottom: 50px;
 }
-*/
 
 .log-footer {
     margin-top: 8px;

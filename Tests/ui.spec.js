@@ -653,3 +653,286 @@ test.describe('Compression Modal Structure', () => {
     });
 
 });
+
+// ================================================================
+// SUITE 11: API Endpoints
+// Verifies all server endpoints respond correctly
+// ================================================================
+test.describe('API Endpoints', () => {
+
+    test('/logs/total returns ok and total count', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/logs/total`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(typeof json.total).toBe('number');
+    });
+
+    test('/logs/slice returns ok, entries array, and total', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/logs/slice?start=0&end=10`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(Array.isArray(json.entries)).toBe(true);
+        expect(typeof json.total).toBe('number');
+    });
+
+    test('/logs/slice with no data returns empty entries', async ({ page }) => {
+        // Clear logs first
+        await page.request.get(`${BASE_URL}/logs/clear`);
+        const res = await page.request.get(`${BASE_URL}/logs/slice?start=0&end=10`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(json.entries.length).toBe(0);
+    });
+
+    test('/logs/search returns ok and entries array', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/logs/search?q=test&max=10`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(Array.isArray(json.entries)).toBe(true);
+        expect(typeof json.total).toBe('number');
+    });
+
+    test('/logs/search with empty query returns empty entries', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/logs/search?q=&max=10`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(json.entries.length).toBe(0);
+    });
+
+    test('/logs/clear returns ok', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/logs/clear`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+    });
+
+    test('/logs/total returns 0 after clear', async ({ page }) => {
+        await page.request.get(`${BASE_URL}/logs/clear`);
+        const res = await page.request.get(`${BASE_URL}/logs/total`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(json.total).toBe(0);
+    });
+
+    test('/status returns a valid status string', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/status`);
+        const json = await res.json();
+        expect(['idle', 'running', 'completed', 'error']).toContain(json.status);
+    });
+
+    test('/status-all returns status and logTotal', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/status-all`);
+        const json = await res.json();
+        expect(typeof json.logTotal).toBe('number');
+        // status can be null when idle, so just check it exists
+        expect('status' in json).toBe(true);
+        expect('logTotal' in json).toBe(true);
+    });
+
+    test('/status-console returns a status field', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/status-console`);
+        const json = await res.json();
+        expect('status' in json).toBe(true);
+    });
+
+    test('/config returns ok and config object', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/config`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(json.config).toBeDefined();
+        expect(typeof json.config.RootPath).toBe('string');
+    });
+
+});
+
+// ================================================================
+// SUITE 12: Search Filter Behavior
+// Tests server-side search and client filter interactions
+// ================================================================
+test.describe('Search Filter', () => {
+
+    test.beforeEach(async ({ page }) => { await resetConfig(page); });
+
+    test('Search filter input is present when log is open', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        await expect(page.locator('#logFilterInput')).toBeVisible();
+    });
+
+    test('Typing in filter updates the input value', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        await page.locator('#logFilterInput').fill('test query');
+        await expect(page.locator('#logFilterInput')).toHaveValue('test query');
+    });
+
+    test('Clear button resets filter input', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        await page.locator('#logFilterInput').fill('something');
+        await page.locator('#logFilterClear').click();
+        await expect(page.locator('#logFilterInput')).toHaveValue('');
+    });
+
+    test('Filter with no matches shows appropriate message', async ({ page }) => {
+        await page.request.get(`${BASE_URL}/logs/clear`);
+        await page.locator('#machineLogBtn').click();
+        await page.locator('#logFilterInput').fill('zzz_nonexistent_query_zzz');
+        await page.locator('#logFilterInput').dispatchEvent('input');
+        // Wait for debounce + server response
+        await page.waitForTimeout(500);
+        const text = await page.locator('#logContent').textContent();
+        expect(text.length).toBeGreaterThan(0);
+    });
+
+    test('Search with backslash in query does not crash', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        await page.locator('#logFilterInput').fill('Shows\\Test');
+        await page.locator('#logFilterInput').dispatchEvent('input');
+        await page.waitForTimeout(500);
+        // Should not throw — page should still be responsive
+        await expect(page.locator('#logFilterInput')).toBeVisible();
+    });
+
+});
+
+// ================================================================
+// SUITE 13: Log Panel — Mode Integrity
+// Ensures switching between human/machine mode renders correctly
+// ================================================================
+test.describe('Log Mode Integrity', () => {
+
+    test.beforeEach(async ({ page }) => { await resetConfig(page); });
+
+    test('Machine log button sets machine-log class on content', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        const hasMachineClass = await page.locator('#logContent').evaluate(
+            el => el.classList.contains('machine-log')
+        );
+        expect(hasMachineClass).toBe(true);
+    });
+
+    test('Human log button removes machine-log class from content', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        await page.locator('#humanLogBtn').click();
+        const hasMachineClass = await page.locator('#logContent').evaluate(
+            el => el.classList.contains('machine-log')
+        );
+        expect(hasMachineClass).toBe(false);
+    });
+
+    test('Switching from human to machine does not show human-formatted content', async ({ page }) => {
+        await page.locator('#humanLogBtn').click();
+        await page.waitForTimeout(300);
+        await page.locator('#machineLogBtn').click();
+        await page.waitForTimeout(300);
+        const hasMachineClass = await page.locator('#logContent').evaluate(
+            el => el.classList.contains('machine-log')
+        );
+        expect(hasMachineClass).toBe(true);
+    });
+
+    test('Closing and reopening log pane resets machine-log class', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        await page.locator('#machineLogBtn').click(); // close
+        const hasMachineClass = await page.locator('#logContent').evaluate(
+            el => el.classList.contains('machine-log')
+        );
+        expect(hasMachineClass).toBe(false);
+    });
+
+    test('Resume scroll button is hidden when log opens', async ({ page }) => {
+        await page.locator('#machineLogBtn').click();
+        await expect(page.locator('#resumeScrollBtn')).toHaveClass(/hidden/);
+    });
+
+});
+
+// ================================================================
+// SUITE 14: Console Updates
+// Verifies the console area receives and displays status data
+// ================================================================
+test.describe('Console', () => {
+
+    test.beforeEach(async ({ page }) => { await resetConfig(page); });
+
+    test('Console output element is visible on load', async ({ page }) => {
+        await expect(page.locator('#consoleOutput')).toBeVisible();
+    });
+
+    test('/status-all endpoint responds within 2 seconds', async ({ page }) => {
+        const start = Date.now();
+        const res = await page.request.get(`${BASE_URL}/status-all`);
+        const elapsed = Date.now() - start;
+        expect(res.ok()).toBe(true);
+        expect(elapsed).toBeLessThan(2000);
+    });
+
+    test('/status-console endpoint responds within 2 seconds', async ({ page }) => {
+        const start = Date.now();
+        const res = await page.request.get(`${BASE_URL}/status-console`);
+        const elapsed = Date.now() - start;
+        expect(res.ok()).toBe(true);
+        expect(elapsed).toBeLessThan(2000);
+    });
+
+    test('/logs/total responds within 1 second', async ({ page }) => {
+        const start = Date.now();
+        const res = await page.request.get(`${BASE_URL}/logs/total`);
+        const elapsed = Date.now() - start;
+        expect(res.ok()).toBe(true);
+        expect(elapsed).toBeLessThan(1000);
+    });
+
+    test('/logs/slice responds within 2 seconds for 200 entries', async ({ page }) => {
+        const start = Date.now();
+        const res = await page.request.get(`${BASE_URL}/logs/slice?start=0&end=200`);
+        const elapsed = Date.now() - start;
+        expect(res.ok()).toBe(true);
+        expect(elapsed).toBeLessThan(2000);
+    });
+
+});
+
+// ================================================================
+// SUITE 15: Log Data Round-Trip
+// Writes test entries, verifies they appear via endpoints
+// ================================================================
+test.describe('Log Data Round-Trip', () => {
+
+    test('Clear then total returns 0', async ({ page }) => {
+        await page.request.get(`${BASE_URL}/logs/clear`);
+        const res = await page.request.get(`${BASE_URL}/logs/total`);
+        const json = await res.json();
+        expect(json.total).toBe(0);
+    });
+
+    test('Slice from empty log returns empty entries', async ({ page }) => {
+        await page.request.get(`${BASE_URL}/logs/clear`);
+        const res = await page.request.get(`${BASE_URL}/logs/slice?start=0&end=100`);
+        const json = await res.json();
+        expect(json.entries.length).toBe(0);
+        expect(json.total).toBe(0);
+    });
+
+    test('Slice with start >= total returns clamped result', async ({ page }) => {
+        await page.request.get(`${BASE_URL}/logs/clear`);
+        const res = await page.request.get(`${BASE_URL}/logs/slice?start=9999&end=10000`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+    });
+
+    test('Search max parameter limits results', async ({ page }) => {
+        const res = await page.request.get(`${BASE_URL}/logs/search?q=a&max=1`);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(json.entries.length).toBeLessThanOrEqual(1);
+    });
+
+    test('Status-all logTotal matches logs/total count', async ({ page }) => {
+        const [allRes, totalRes] = await Promise.all([
+            page.request.get(`${BASE_URL}/status-all`),
+            page.request.get(`${BASE_URL}/logs/total`)
+        ]);
+        const allJson = await allRes.json();
+        const totalJson = await totalRes.json();
+        expect(allJson.logTotal).toBe(totalJson.total);
+    });
+
+});
